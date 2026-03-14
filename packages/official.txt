@@ -20,6 +20,7 @@ polkit-kde-agent
 
 # Login
 greetd
+greetd-tuigreet
 
 # Audio (PipeWire)
 pipewire
@@ -31,8 +32,6 @@ wireplumber
 # GPU (AMD RX 6800 XT)
 mesa
 vulkan-radeon
-libva-mesa-driver
-mesa-vdpau
 
 # Bluetooth
 bluez
@@ -60,11 +59,17 @@ nodejs
 npm
 go
 
+# Terminal
+ghostty
+
 # Notifications
 mako
 
+# Communication
+discord
+
 # App Launcher
-rofi-wayland
+rofi
 
 # Fonts
 ttf-dejavu

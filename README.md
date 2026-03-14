@@ -12,7 +12,9 @@ cd ~/git/arch
 # reboot
 ```
 
-Re-running `./setup.sh` is always safe -it skips anything already installed/enabled.
+Re-running `./setup.sh` is always safe - it skips anything already installed/enabled.
+
+Use `./setup.sh --dry-run` to validate everything without making changes.
 
 ## What It Does
 

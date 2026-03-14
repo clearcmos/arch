@@ -3,16 +3,169 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# --- Parse flags ---
+
+DRY_RUN=false
+if [[ "${1:-}" == "--dry-run" ]]; then
+    DRY_RUN=true
+fi
+
 # --- Helpers ---
 
 info()  { printf '\033[0;32m[INFO]\033[0m %s\n' "$1"; }
 warn()  { printf '\033[1;33m[WARN]\033[0m %s\n' "$1"; }
 error() { printf '\033[0;31m[ERROR]\033[0m %s\n' "$1"; }
+ok()    { printf '\033[0;32m  OK\033[0m %s\n' "$1"; }
+fail()  { printf '\033[0;31m  FAIL\033[0m %s\n' "$1"; }
 
 # Read a package list file, stripping comments and blanks
 read_packages() {
     grep -v '^\s*#' "$1" | grep -v '^\s*$'
 }
+
+if $DRY_RUN; then
+    info "=== DRY RUN - validating setup, nothing will be changed ==="
+    echo ""
+    errors=0
+
+    # --- Validate package list files exist ---
+    info "Checking package list files..."
+    for f in "$SCRIPT_DIR/packages/official.txt" "$SCRIPT_DIR/packages/aur.txt" "$SCRIPT_DIR/services.txt"; do
+        if [[ -f "$f" ]]; then
+            ok "$f"
+        else
+            fail "$f not found"
+            errors=$((errors + 1))
+        fi
+    done
+
+    # --- Validate official packages ---
+    echo ""
+    info "Validating official packages (pacman --print)..."
+    if read_packages "$SCRIPT_DIR/packages/official.txt" \
+        | xargs pacman -S --needed --print &>/dev/null; then
+        ok "all official packages resolved successfully"
+    else
+        fail "some official packages failed to resolve:"
+        # Show which ones fail individually
+        while IFS= read -r pkg; do
+            if ! pacman -S --needed --print "$pkg" &>/dev/null; then
+                fail "  $pkg"
+                errors=$((errors + 1))
+            fi
+        done < <(read_packages "$SCRIPT_DIR/packages/official.txt")
+    fi
+
+    # --- Validate AUR helper ---
+    echo ""
+    info "Checking AUR helper (paru)..."
+    if command -v paru &>/dev/null; then
+        ok "paru is installed"
+
+        # Validate AUR packages
+        info "Validating AUR packages (paru --print)..."
+        if read_packages "$SCRIPT_DIR/packages/aur.txt" \
+            | xargs paru -S --needed --print &>/dev/null; then
+            ok "all AUR packages resolved successfully"
+        else
+            fail "some AUR packages failed to resolve:"
+            while IFS= read -r pkg; do
+                if ! paru -S --needed --print "$pkg" &>/dev/null; then
+                    fail "  $pkg"
+                    errors=$((errors + 1))
+                fi
+            done < <(read_packages "$SCRIPT_DIR/packages/aur.txt")
+        fi
+    else
+        warn "paru not installed - AUR packages cannot be validated (will be installed on real run)"
+    fi
+
+    # --- Check standalone tools ---
+    echo ""
+    info "Checking standalone tools..."
+    if command -v rustup &>/dev/null; then
+        ok "rustup already installed"
+    else
+        warn "rustup not found - will be installed"
+    fi
+
+    if command -v nix &>/dev/null; then
+        ok "nix already installed"
+    else
+        warn "nix not found - will be installed"
+    fi
+
+    if command -v npm &>/dev/null; then
+        ok "npm available (needed for claude code)"
+    else
+        warn "npm not found - will be available after pacman installs it"
+    fi
+
+    if command -v claude &>/dev/null; then
+        ok "claude code already installed"
+    else
+        warn "claude code not found - will be installed"
+    fi
+
+    # --- Check config source files ---
+    echo ""
+    info "Checking config source files..."
+    config_files=(
+        "config/hyprland/hyprland.conf"
+        "config/waybar/config.jsonc"
+        "config/waybar/style.css"
+        "config/rofi/config.rasi"
+        "config/greetd/config.toml"
+    )
+    for f in "${config_files[@]}"; do
+        if [[ -f "$SCRIPT_DIR/$f" ]]; then
+            ok "$f"
+        else
+            fail "$f not found"
+            errors=$((errors + 1))
+        fi
+    done
+
+    # --- Check services ---
+    echo ""
+    info "Checking services..."
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" == \#* ]] && continue
+
+        if [[ "$line" == user:* ]]; then
+            svc="${line#user:}"
+            if systemctl --user is-enabled "$svc" &>/dev/null; then
+                ok "user:$svc (already enabled)"
+            elif systemctl --user cat "$svc" &>/dev/null; then
+                ok "user:$svc (unit exists, will enable)"
+            else
+                warn "user:$svc (unit not found - may appear after packages install)"
+            fi
+        else
+            if systemctl is-enabled "$line" &>/dev/null; then
+                ok "$line (already enabled)"
+            elif systemctl cat "$line" &>/dev/null; then
+                ok "$line (unit exists, will enable)"
+            else
+                warn "$line (unit not found - may appear after packages install)"
+            fi
+        fi
+    done < "$SCRIPT_DIR/services.txt"
+
+    # --- Summary ---
+    echo ""
+    if [[ $errors -eq 0 ]]; then
+        info "=== DRY RUN PASSED - no errors found ==="
+    else
+        error "=== DRY RUN FOUND $errors ERROR(S) ==="
+        exit 1
+    fi
+    exit 0
+fi
+
+# =============================================================
+# REAL RUN
+# =============================================================
 
 # --- System Update ---
 

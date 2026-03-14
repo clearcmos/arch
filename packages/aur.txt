@@ -5,15 +5,12 @@ google-chrome
 # Editor
 visual-studio-code-bin
 
-# Terminal
-ghostty
-
 # Communication
-discord
 slack-desktop
+
+# Password Manager
+1password
+1password-cli
 
 # Media
 spotify
-
-# Login
-greetd-tuigreet
