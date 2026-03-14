@@ -1,0 +1,19 @@
+# Browser
+brave-bin
+google-chrome
+
+# Editor
+visual-studio-code-bin
+
+# Terminal
+ghostty
+
+# Communication
+discord
+slack-desktop
+
+# Media
+spotify
+
+# Login
+greetd-tuigreet

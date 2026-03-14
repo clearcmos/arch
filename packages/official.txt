@@ -1,0 +1,73 @@
+# Base
+base-devel
+git
+nano
+fzf
+man-db
+man-pages
+unzip
+wget
+curl
+
+# Wayland / Hyprland
+hyprland
+waybar
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+qt5-wayland
+qt6-wayland
+polkit-kde-agent
+
+# Login
+greetd
+
+# Audio (PipeWire)
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-jack
+wireplumber
+
+# GPU (AMD RX 6800 XT)
+mesa
+vulkan-radeon
+libva-mesa-driver
+mesa-vdpau
+
+# Bluetooth
+bluez
+bluez-utils
+
+# File Manager
+dolphin
+
+# Screenshots
+grim
+slurp
+wl-clipboard
+
+# Networking
+networkmanager
+
+# Media
+vlc
+obs-studio
+
+# Dev
+python
+python-pip
+nodejs
+npm
+go
+
+# Notifications
+mako
+
+# App Launcher
+rofi-wayland
+
+# Fonts
+ttf-dejavu
+ttf-liberation
+noto-fonts
+noto-fonts-emoji

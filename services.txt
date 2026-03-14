@@ -1,0 +1,11 @@
+# System services (enabled via systemctl enable)
+NetworkManager
+bluetooth
+greetd
+
+# User services (enabled via systemctl --user enable)
+# PipeWire is socket-activated by default on modern Arch,
+# but we enable explicitly for reliability.
+user:pipewire
+user:pipewire-pulse
+user:wireplumber
