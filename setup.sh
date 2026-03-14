@@ -118,6 +118,7 @@ if $DRY_RUN; then
         "config/ghostty/config.ghostty"
         "config/claude-code/CLAUDE.md"
         "config/shell/aliases.sh"
+        "config/brave/brave-flags.conf"
         "config/hyprfloat/commands/snap.lua"
         "config/hyprfloat/lib/hyprland.lua"
     )
@@ -155,6 +156,21 @@ if $DRY_RUN; then
             fi
         fi
     done < "$SCRIPT_DIR/services.txt"
+
+    # --- Check Bluetooth devices ---
+    echo ""
+    info "Checking Bluetooth devices..."
+    Q30_MAC="E8:EE:CC:46:F1:AC"
+    if bluetoothctl info "$Q30_MAC" 2>/dev/null | grep -q "Paired: yes"; then
+        ok "Soundcore Life Q30 ($Q30_MAC) paired"
+    else
+        warn "Soundcore Life Q30 ($Q30_MAC) not paired - manual pairing required"
+    fi
+    if bluetoothctl info "$Q30_MAC" 2>/dev/null | grep -q "Trusted: yes"; then
+        ok "Soundcore Life Q30 ($Q30_MAC) trusted"
+    else
+        warn "Soundcore Life Q30 ($Q30_MAC) not trusted - will trust on real run"
+    fi
 
     # --- Summary ---
     echo ""
@@ -301,6 +317,9 @@ link_config "$SCRIPT_DIR/config/rofi/config.rasi" "$HOME/.config/rofi/config.ras
 link_config "$SCRIPT_DIR/config/hyprfloat/commands/snap.lua" "$HOME/.local/share/hyprfloat/commands/snap.lua"
 link_config "$SCRIPT_DIR/config/hyprfloat/lib/hyprland.lua" "$HOME/.local/share/hyprfloat/lib/hyprland.lua"
 
+# Brave
+link_config "$SCRIPT_DIR/config/brave/brave-flags.conf" "$HOME/.config/brave-flags.conf"
+
 # Ghostty
 link_config "$SCRIPT_DIR/config/ghostty/config.ghostty" "$HOME/.config/ghostty/config.ghostty"
 
@@ -323,6 +342,28 @@ fi
 sudo mkdir -p /etc/greetd
 sudo cp "$SCRIPT_DIR/config/greetd/config.toml" /etc/greetd/config.toml
 info "  copied greetd config to /etc/greetd/config.toml"
+
+# --- Bluetooth Devices ---
+
+info "Configuring Bluetooth devices..."
+
+Q30_MAC="E8:EE:CC:46:F1:AC"
+
+if bluetoothctl info "$Q30_MAC" 2>/dev/null | grep -q "Paired: yes"; then
+    info "  Soundcore Life Q30 ($Q30_MAC) already paired."
+else
+    info "  Soundcore Life Q30 ($Q30_MAC) not paired."
+    info "  Put headphones in pairing mode (off -> hold power 5s), then run:"
+    info "    bluetoothctl scan on  (wait for Q30)  ->  scan off  ->  pair $Q30_MAC"
+    info "    bluetoothctl trust $Q30_MAC"
+fi
+
+# Ensure device is trusted (idempotent)
+if bluetoothctl info "$Q30_MAC" 2>/dev/null | grep -q "Trusted: yes"; then
+    info "  Soundcore Life Q30 already trusted."
+else
+    bluetoothctl trust "$Q30_MAC" 2>/dev/null && info "  trusted Soundcore Life Q30." || true
+fi
 
 # --- Done ---
 

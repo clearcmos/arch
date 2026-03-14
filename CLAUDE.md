@@ -39,5 +39,5 @@ Hyprland (Wayland) configured in **all-floating mode** (no tiling) for a KDE-lik
 
 - All idempotency must be preserved when modifying `setup.sh` - never add operations that fail or duplicate on re-run.
 - Package lists use comments for category grouping; maintain this when adding packages.
-- User configs are **symlinked** (not copied) so the repo stays the source of truth. Exception: `/etc/greetd/config.toml` is copied (requires root ownership).
+- **Every config file must live in this repo and be symlinked to its target location.** Never create or edit config files directly in `~/.config/` or elsewhere - always add them under `config/` in this repo and symlink via `setup.sh`. The repo is the single source of truth for all configuration. Exception: `/etc/greetd/config.toml` is copied (requires root ownership).
 - The script targets a single machine with AMD RX 6800 XT GPU and Intel i7-13700K.
