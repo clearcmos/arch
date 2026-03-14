@@ -32,7 +32,10 @@ Hyprland (Wayland) configured in **all-floating mode** (no tiling) for a KDE-lik
 
 ## Maintenance
 
-- Always keep `README.md` up to date when making changes -remove anything that no longer applies and add new sections as needed.
+- Always keep `README.md` up to date when making changes - remove anything that no longer applies and add new sections as needed.
+- When adding packages, verify online whether they belong in `official.txt` (pacman) or `aur.txt` (paru). Packages move between repos over time.
+- When adding a new operation category to `setup.sh`, add matching validation in the `--dry-run` block. The dry run must stay in sync with the real run.
+- Run `./setup.sh --dry-run` after any change to package lists or setup logic to catch problems early.
 
 ## Key Conventions
 
@@ -43,3 +46,4 @@ Hyprland (Wayland) configured in **all-floating mode** (no tiling) for a KDE-lik
 - Do not add co-authorship lines (e.g. `Co-Authored-By`) to git commits.
 - Do not use emojis anywhere - not in code, commits, comments, or documentation.
 - Do not use em dashes. Use regular hyphens instead.
+- Never commit PHI, PII, secrets, credentials, API keys, tokens, or any sensitive data. Always review staged changes for sensitive content before committing.
