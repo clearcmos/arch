@@ -1,0 +1,47 @@
+# Catppuccin Mocha title bars for labwc
+
+# Title bar height (scaled for 1.5x)
+titlebar.height: 36
+
+# Active window
+window.active.title.bg.color: #1e1e2e
+window.active.label.text.color: #cdd6f4
+window.active.border.color: #585b70
+
+# Inactive window
+window.inactive.title.bg.color: #181825
+window.inactive.label.text.color: #6c7086
+window.inactive.border.color: #45475a
+
+# Buttons (close, maximize, iconify)
+window.active.button.close.unpressed.image.color: #f38ba8
+window.active.button.max.unpressed.image.color: #a6e3a1
+window.active.button.iconify.unpressed.image.color: #fab387
+
+window.inactive.button.close.unpressed.image.color: #6c7086
+window.inactive.button.max.unpressed.image.color: #6c7086
+window.inactive.button.iconify.unpressed.image.color: #6c7086
+
+# Hover states
+window.active.button.close.hover.image.color: #eba0ac
+window.active.button.max.hover.image.color: #b5e8b0
+window.active.button.iconify.hover.image.color: #f9c7a5
+
+
+# Button size
+window.button.width: 22
+window.button.height: 22
+window.button.spacing: 6
+
+# Border
+border.width: 2
+
+# Corner radius
+border.radius: 8
+
+# Menu (right-click)
+menu.items.bg.color: #1e1e2e
+menu.items.text.color: #cdd6f4
+menu.items.active.bg.color: #45475a
+menu.items.active.text.color: #cdd6f4
+menu.separator.color: #313244
