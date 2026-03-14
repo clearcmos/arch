@@ -118,6 +118,7 @@ if $DRY_RUN; then
         "config/ghostty/config.ghostty"
         "config/claude-code/CLAUDE.md"
         "config/shell/aliases.sh"
+        "config/hyprland/scripts/fake-maximize.sh"
         "config/brave/brave-flags.conf"
         "config/hyprfloat/commands/snap.lua"
         "config/hyprfloat/lib/hyprland.lua"
@@ -305,6 +306,13 @@ link_config() {
 
 # Hyprland
 link_config "$SCRIPT_DIR/config/hyprland/hyprland.conf" "$HOME/.config/hypr/hyprland.conf"
+link_config "$SCRIPT_DIR/config/hyprland/scripts/focus-raise.sh" "$HOME/.config/hypr/scripts/focus-raise.sh"
+
+# labwc
+link_config "$SCRIPT_DIR/config/labwc/rc.xml" "$HOME/.config/labwc/rc.xml"
+link_config "$SCRIPT_DIR/config/labwc/autostart" "$HOME/.config/labwc/autostart"
+link_config "$SCRIPT_DIR/config/labwc/environment" "$HOME/.config/labwc/environment"
+link_config "$SCRIPT_DIR/config/labwc/themerc-override" "$HOME/.config/labwc/themerc-override"
 
 # Waybar
 link_config "$SCRIPT_DIR/config/waybar/config.jsonc" "$HOME/.config/waybar/config.jsonc"
@@ -342,6 +350,11 @@ fi
 sudo mkdir -p /etc/greetd
 sudo cp "$SCRIPT_DIR/config/greetd/config.toml" /etc/greetd/config.toml
 info "  copied greetd config to /etc/greetd/config.toml"
+
+# Brave policies (system-wide, needs root)
+sudo mkdir -p /etc/brave/policies/managed
+sudo cp "$SCRIPT_DIR/config/brave/policies.json" /etc/brave/policies/managed/policies.json
+info "  copied Brave policies to /etc/brave/policies/managed/"
 
 # --- Bluetooth Devices ---
 
