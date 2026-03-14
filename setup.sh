@@ -62,20 +62,18 @@ if $DRY_RUN; then
     if command -v paru &>/dev/null; then
         ok "paru is installed"
 
-        # Validate AUR packages
-        info "Validating AUR packages (paru --print)..."
-        if read_packages "$SCRIPT_DIR/packages/aur.txt" \
-            | xargs paru -S --needed --print &>/dev/null; then
-            ok "all AUR packages resolved successfully"
-        else
-            fail "some AUR packages failed to resolve:"
-            while IFS= read -r pkg; do
-                if ! paru -S --needed --print "$pkg" &>/dev/null; then
-                    fail "  $pkg"
-                    errors=$((errors + 1))
-                fi
-            done < <(read_packages "$SCRIPT_DIR/packages/aur.txt")
-        fi
+        # Validate AUR packages (paru --print doesn't work for AUR, use -Si to check existence)
+        info "Validating AUR packages..."
+        aur_ok=true
+        while IFS= read -r pkg; do
+            if paru -Si "$pkg" &>/dev/null; then
+                ok "$pkg"
+            else
+                fail "$pkg (not found in repos or AUR)"
+                errors=$((errors + 1))
+                aur_ok=false
+            fi
+        done < <(read_packages "$SCRIPT_DIR/packages/aur.txt")
     else
         warn "paru not installed - AUR packages cannot be validated (will be installed on real run)"
     fi
@@ -116,6 +114,12 @@ if $DRY_RUN; then
         "config/waybar/style.css"
         "config/rofi/config.rasi"
         "config/greetd/config.toml"
+        "config/claude-code/settings.json"
+        "config/ghostty/config.ghostty"
+        "config/claude-code/CLAUDE.md"
+        "config/shell/aliases.sh"
+        "config/hyprfloat/commands/snap.lua"
+        "config/hyprfloat/lib/hyprland.lua"
     )
     for f in "${config_files[@]}"; do
         if [[ -f "$SCRIPT_DIR/$f" ]]; then
@@ -183,8 +187,8 @@ read_packages "$SCRIPT_DIR/packages/official.txt" \
 if ! command -v paru &>/dev/null; then
     info "Installing paru (AUR helper)..."
     _tmp="$(mktemp -d)"
-    git clone https://aur.archlinux.org/paru-bin.git "$_tmp/paru-bin"
-    (cd "$_tmp/paru-bin" && makepkg -si --noconfirm)
+    git clone https://aur.archlinux.org/paru.git "$_tmp/paru"
+    (cd "$_tmp/paru" && makepkg -si --noconfirm)
     rm -rf "$_tmp"
 else
     info "paru already installed, skipping."
@@ -250,6 +254,26 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     fi
 done < "$SCRIPT_DIR/services.txt"
 
+# --- Hyprland Plugins (via hyprpm) ---
+
+info "Setting up Hyprland plugins..."
+hyprpm update || true
+if ! hyprpm list | grep -q "hyprbars.*enabled"; then
+    hyprpm add https://github.com/hyprwm/hyprland-plugins || true
+    hyprpm enable hyprbars
+else
+    info "  hyprbars already enabled, skipping."
+fi
+
+# --- Hyprfloat (window snapping) ---
+
+if ! command -v hyprfloat &>/dev/null; then
+    info "Installing hyprfloat..."
+    curl -fsSL https://raw.githubusercontent.com/yz778/hyprfloat/main/install.sh | sh
+else
+    info "hyprfloat already installed, skipping."
+fi
+
 # --- Deploy Configs ---
 
 info "Deploying config files..."
@@ -273,6 +297,28 @@ link_config "$SCRIPT_DIR/config/waybar/style.css" "$HOME/.config/waybar/style.cs
 # Rofi
 link_config "$SCRIPT_DIR/config/rofi/config.rasi" "$HOME/.config/rofi/config.rasi"
 
+# Hyprfloat patches (custom snap with scale/transform/cross-monitor support)
+link_config "$SCRIPT_DIR/config/hyprfloat/commands/snap.lua" "$HOME/.local/share/hyprfloat/commands/snap.lua"
+link_config "$SCRIPT_DIR/config/hyprfloat/lib/hyprland.lua" "$HOME/.local/share/hyprfloat/lib/hyprland.lua"
+
+# Ghostty
+link_config "$SCRIPT_DIR/config/ghostty/config.ghostty" "$HOME/.config/ghostty/config.ghostty"
+
+# Claude Code
+link_config "$SCRIPT_DIR/config/claude-code/settings.json" "$HOME/.claude/settings.json"
+link_config "$SCRIPT_DIR/config/claude-code/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+
+# Shell aliases
+link_config "$SCRIPT_DIR/config/shell/aliases.sh" "$HOME/.config/shell/aliases.sh"
+
+# Source aliases from bashrc if not already present
+if ! grep -q 'shell/aliases.sh' "$HOME/.bashrc" 2>/dev/null; then
+    echo '' >> "$HOME/.bashrc"
+    echo '# Custom aliases' >> "$HOME/.bashrc"
+    echo '[ -f "$HOME/.config/shell/aliases.sh" ] && source "$HOME/.config/shell/aliases.sh"' >> "$HOME/.bashrc"
+    info "  added aliases source line to ~/.bashrc"
+fi
+
 # greetd (system config, needs root)
 sudo mkdir -p /etc/greetd
 sudo cp "$SCRIPT_DIR/config/greetd/config.toml" /etc/greetd/config.toml
@@ -287,9 +333,12 @@ info ""
 info "Quick reference:"
 info "  SUPER+Return  -> Ghostty"
 info "  SUPER+Space   -> Rofi (app launcher)"
-info "  SUPER+E       -> Dolphin"
+info "  SUPER+E       -> Thunar"
 info "  SUPER+Q       -> Close window"
 info "  SUPER+F       -> Fullscreen"
-info "  ALT+Tab       -> Cycle windows"
+info "  SUPER+Up      -> Maximize"
+info "  SUPER+Left    -> Snap left (repeat to cross monitors)"
+info "  SUPER+Right   -> Snap right (repeat to cross monitors)"
+info "  ALT+Tab       -> Window switcher (hyprswitch)"
 info "  Print         -> Screenshot (select area)"
 info "  SHIFT+Print   -> Screenshot (full screen)"

@@ -6,8 +6,8 @@ Idempotent post-install script for my Arch Linux workstation. Run once on a fres
 
 ```bash
 sudo pacman -S git
-git clone <repo-url> ~/git/arch
-cd ~/git/arch
+git clone <repo-url> ~/git/mine/arch
+cd ~/git/mine/arch
 ./setup.sh
 # reboot
 ```
@@ -20,17 +20,14 @@ Use `./setup.sh --dry-run` to validate everything without making changes.
 
 1. System update
 2. Installs packages from `packages/official.txt` (pacman) and `packages/aur.txt` (paru)
-3. Installs standalone tools (Rust via rustup, Nix, Claude Code) if not present
-4. Enables systemd services listed in `services.txt`
-5. Symlinks config files from `config/` into `~/.config/`
-
-## Adding Packages
-
-Edit `packages/official.txt` or `packages/aur.txt`, one package per line. Re-run `./setup.sh`.
+3. Installs standalone tools (Rust via rustup, Nix, Claude Code, hyprfloat) if not present
+4. Sets up Hyprland plugins (hyprbars) via hyprpm
+5. Enables systemd services listed in `services.txt`
+6. Symlinks config files from `config/` into `~/.config/`, `~/.claude/`, and `~/.local/share/`
 
 ## Config Files
 
-Files in `config/` are symlinked to their expected locations (e.g. `config/hyprland/hyprland.conf` -> `~/.config/hypr/hyprland.conf`). Editing either path changes the same file -changes are already in the repo, ready to commit.
+Files in `config/` are symlinked to their expected locations. Editing either path changes the same file - changes are already in the repo, ready to commit.
 
 ## Keybinds
 
@@ -38,11 +35,13 @@ See `config/hyprland/hyprland.conf` for the full list. Highlights:
 
 | Key | Action |
 |---|---|
-| `Super+Return` | Terminal |
-| `Super+Space` | App launcher |
-| `Super+E` | File manager |
+| `Super+Return` | Terminal (Ghostty) |
+| `Super+Space` | App launcher (Rofi) |
+| `Super+E` | File manager (Thunar) |
 | `Super+Q` | Close window |
-| `Super+F` | Fullscreen |
-| `Alt+Tab` | Cycle windows |
+| `Super+Up` | Maximize |
+| `Super+Left` | Snap left (repeat to cross monitors) |
+| `Super+Right` | Snap right (repeat to cross monitors) |
+| `Alt+Tab` | Window switcher (hyprswitch) |
 | `Print` | Screenshot (area) |
 | `Shift+Print` | Screenshot (full) |
