@@ -21,6 +21,17 @@ window#waybar {
     border-radius: 4px;
 }
 
+#taskbar button {
+    padding: 2px 6px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+}
+
+#taskbar button.active {
+    background: rgba(137, 180, 250, 0.3);
+}
+
 #clock,
 #pulseaudio,
 #bluetooth,

@@ -2,17 +2,23 @@
     "layer": "top",
     "position": "bottom",
     "height": 36,
+    "output": "DP-2",
 
     "modules-left": ["hyprland/workspaces"],
-    "modules-center": ["hyprland/window"],
+    "modules-center": ["wlr/taskbar"],
     "modules-right": ["tray", "pulseaudio", "bluetooth", "network", "clock"],
 
     "hyprland/workspaces": {
         "format": "{id}"
     },
 
-    "hyprland/window": {
-        "max-length": 50
+    "wlr/taskbar": {
+        "all-outputs": true,
+        "format": "{icon}",
+        "icon-size": 32,
+        "on-click": "activate",
+        "on-click-middle": "close",
+        "tooltip-format": "{title}"
     },
 
     "clock": {
