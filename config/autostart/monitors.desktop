@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Set Primary Monitor
+Exec=kscreen-doctor output.DP-2.priority.1
+X-KDE-AutostartScript=true
