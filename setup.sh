@@ -253,7 +253,8 @@ info "  added github.com to known_hosts."
 git config --global user.name "clearcmos"
 git config --global user.email "noreply"
 git config --global core.sshCommand "ssh"
-info "  set git identity (clearcmos <noreply>)."
+git config --global url."git@github.com:".insteadOf "https://github.com/"
+info "  set git identity (clearcmos <noreply>), SSH for all GitHub repos."
 
 if command -v gh &>/dev/null; then
     if gh auth status &>/dev/null 2>&1; then
