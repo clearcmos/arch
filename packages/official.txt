@@ -91,7 +91,6 @@ go
 github-cli
 
 # Terminal
-ghostty
 konsole
 
 # Utilities

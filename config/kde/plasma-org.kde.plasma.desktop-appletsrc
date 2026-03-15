@@ -84,7 +84,7 @@ immutability=1
 plugin=org.kde.plasma.icontasks
 
 [Containments][4][Applets][7][Configuration][General]
-launchers=applications:brave-browser.desktop,applications:org.kde.dolphin.desktop
+launchers=applications:brave-browser.desktop,applications:org.kde.dolphin.desktop,applications:org.kde.konsole.desktop
 
 [Containments][4][Applets][9]
 activityId=

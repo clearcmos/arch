@@ -159,6 +159,25 @@ info "Disabling WiFi..."
 nmcli radio wifi off
 info "  WiFi disabled."
 
+# --- KDE Lock Screen (disabled) ---
+
+info "Disabling KDE lock screen..."
+kwriteconfig6 --file kscreenlockerrc --group Daemon --key Autolock false
+kwriteconfig6 --file kscreenlockerrc --group Daemon --key LockOnResume false
+info "  lock screen disabled."
+
+# --- KDE Hot Corners (disabled) ---
+
+info "Disabling KDE hot corners..."
+kwriteconfig6 --file kwinrc --group Effect-overview --key BorderActivate 9
+kwriteconfig6 --file kwinrc --group ElectricBorders --key TopLeft None
+kwriteconfig6 --file kwinrc --group ElectricBorders --key TopRight None
+kwriteconfig6 --file kwinrc --group ElectricBorders --key BottomLeft None
+kwriteconfig6 --file kwinrc --group ElectricBorders --key BottomRight None
+info "  hot corners disabled."
+kwriteconfig6 --file kglobalshortcutsrc --group kwin --key Overview "none,Meta+W,Toggle Overview"
+info "  Overview shortcut disabled (takes effect after re-login)."
+
 # --- KDE Dark Theme ---
 
 info "Applying KDE dark theme..."
@@ -333,9 +352,6 @@ link_config "$SCRIPT_DIR/config/environment.d/20-gaming.conf" "$HOME/.config/env
 
 # Brave
 link_config "$SCRIPT_DIR/config/brave/brave-flags.conf" "$HOME/.config/brave-flags.conf"
-
-# Ghostty
-link_config "$SCRIPT_DIR/config/ghostty/config.ghostty" "$HOME/.config/ghostty/config.ghostty"
 
 # Claude Code
 link_config "$SCRIPT_DIR/config/claude-code/settings.json" "$HOME/.claude/settings.json"
