@@ -8,7 +8,7 @@ Idempotent Arch Linux post-install setup script and config files for a personal 
 - `packages/official.txt` - Pacman packages, one per line. Comments (`#`) and blank lines are stripped.
 - `packages/aur.txt` - AUR packages (installed via paru), same format.
 - `services.txt` - Systemd services to enable. Lines prefixed with `user:` are user-level services.
-- `config/` - Config files that get symlinked into `~/.config/` (or copied to `/etc/` for system configs like greetd). These are the live configs - editing them here or at their symlink destination is equivalent.
+- `config/` - Config files that get symlinked into `~/.config/` (or copied to `/etc/` for system configs like greetd, Brave policies). These are the live configs - editing them here or at their symlink destination is equivalent.
 
 ## Setup Flow Order
 
@@ -32,7 +32,7 @@ Idempotent Arch Linux post-install setup script and config files for a personal 
 
 ## Desktop Environment
 
-KDE Plasma 6 on Wayland. Stack: KDE Plasma + KWin + SDDM (login) + Thunar/Dolphin (file managers) + BreezeDark (theme).
+KDE Plasma 6 on Wayland. Stack: KDE Plasma + KWin + greetd/tuigreet (login) + Thunar/Dolphin (file managers) + BreezeDark (theme).
 
 ## SSH Key Management
 

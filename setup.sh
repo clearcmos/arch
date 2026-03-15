@@ -314,8 +314,11 @@ link_config "$SCRIPT_DIR/config/kde/plasmashellrc" "$HOME/.config/plasmashellrc"
 link_config "$SCRIPT_DIR/config/kde/powerdevilrc" "$HOME/.config/powerdevilrc"
 link_config "$SCRIPT_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
 
-# KDE monitor layout (PLP triple monitor, DP-2/ASUS center as primary)
-link_config "$SCRIPT_DIR/config/kde/kwinoutputconfig.json" "$HOME/.config/kwinoutputconfig.json"
+# KDE monitor layout (set DP-2/ASUS center as primary before Plasma starts)
+link_config "$SCRIPT_DIR/config/plasma-workspace/env/monitors.sh" "$HOME/.config/plasma-workspace/env/monitors.sh"
+
+# Bluetooth auto-connect on login
+link_config "$SCRIPT_DIR/config/plasma-workspace/env/bluetooth.sh" "$HOME/.config/plasma-workspace/env/bluetooth.sh"
 
 # Environment variables (AMD GPU, Wayland)
 link_config "$SCRIPT_DIR/config/environment.d/10-amd-gpu.conf" "$HOME/.config/environment.d/10-amd-gpu.conf"
@@ -343,10 +346,10 @@ if ! grep -q 'shell/aliases.sh' "$HOME/.bashrc" 2>/dev/null; then
     info "  added aliases source line to ~/.bashrc"
 fi
 
-# SDDM (system config, needs root)
-sudo mkdir -p /etc/sddm.conf.d
-sudo cp "$SCRIPT_DIR/config/sddm/sddm.conf" /etc/sddm.conf.d/kde.conf
-info "  copied SDDM config to /etc/sddm.conf.d/kde.conf"
+# greetd (login manager, system config, needs root)
+sudo cp "$SCRIPT_DIR/config/greetd/config.toml" /etc/greetd/config.toml
+sudo cp "$SCRIPT_DIR/config/greetd/pam-greetd" /etc/pam.d/greetd
+info "  deployed greetd config and PAM (KWallet auto-unlock)."
 
 # Brave policies (system-wide, needs root)
 sudo mkdir -p /etc/brave/policies/managed

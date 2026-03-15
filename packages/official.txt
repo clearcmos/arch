@@ -30,8 +30,8 @@ kdeplasma-addons
 powerdevil
 spectacle
 xdg-desktop-portal-kde
-sddm
-weston
+greetd
+greetd-tuigreet
 
 # Audio (PipeWire)
 pipewire
