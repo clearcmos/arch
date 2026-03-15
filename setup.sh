@@ -182,6 +182,11 @@ if $DRY_RUN; then
     else
         warn "/mnt/syno not in fstab - will be added on real run"
     fi
+    if [[ -f /etc/cifs/credentials ]]; then
+        ok "CIFS credentials file exists"
+    else
+        warn "CIFS credentials file missing - will prompt to create on real run"
+    fi
 
     # --- Check GPU kernel config ---
     echo ""
@@ -430,6 +435,27 @@ info "  /mnt/data mounted."
 # NAS (Synology)
 SYNO_SHARE="//192.168.1.4/syno"
 SYNO_FSTAB="$SYNO_SHARE /mnt/syno cifs credentials=/etc/cifs/credentials,uid=1000,gid=100,vers=3.0,file_mode=0770,dir_mode=0770,soft,nounix,serverino,mapposix,noauto,x-systemd.automount,x-systemd.idle-timeout=60 0 0"
+
+# Create CIFS credentials file if missing
+if [[ ! -f /etc/cifs/credentials ]]; then
+    echo ""
+    info "CIFS credentials file not found at /etc/cifs/credentials."
+    read -r -p "Create it now for NAS mount? [y/N] " create_creds
+    if [[ "$create_creds" =~ ^[Yy]$ ]]; then
+        read -r -p "NAS username: " nas_user
+        read -r -s -p "NAS password: " nas_pass
+        echo ""
+        sudo mkdir -p /etc/cifs
+        printf 'username=%s\npassword=%s\n' "$nas_user" "$nas_pass" | sudo tee /etc/cifs/credentials >/dev/null
+        sudo chmod 600 /etc/cifs/credentials
+        info "  created /etc/cifs/credentials."
+    else
+        warn "  skipping CIFS credentials - NAS mount will fail without it."
+    fi
+else
+    info "  CIFS credentials file already exists."
+fi
+
 if grep -q "$SYNO_SHARE" /etc/fstab 2>/dev/null; then
     info "  /mnt/syno already in fstab."
 else
