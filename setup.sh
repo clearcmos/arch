@@ -153,6 +153,12 @@ for preset in "${font_presets[@]}"; do
     fi
 done
 
+# --- Disable WiFi (desktop uses Ethernet only) ---
+
+info "Disabling WiFi..."
+nmcli radio wifi off
+info "  WiFi disabled."
+
 # --- KDE Dark Theme ---
 
 info "Applying KDE dark theme..."

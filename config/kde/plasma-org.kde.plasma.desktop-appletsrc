@@ -6,7 +6,9 @@ RightButton;NoModifier=org.kde.contextmenu
 
 [Containments][31]
 ItemGeometries-1108x1969=
+ItemGeometries-1707x960=
 ItemGeometries-960x1707=
+ItemGeometriesHorizontal=
 ItemGeometriesVertical=
 activityId=c8c8f4a0-79ce-4530-b7e7-8603c5a54cbc
 formfactor=0
@@ -48,7 +50,7 @@ immutability=1
 plugin=org.kde.plasma.digitalclock
 
 [Containments][4][Applets][21][Configuration]
-popupHeight=400
+popupHeight=451
 popupWidth=560
 
 [Containments][4][Applets][21][Configuration][Appearance]
