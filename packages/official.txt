@@ -9,18 +9,11 @@ unzip
 wget
 curl
 
-# Wayland / Compositors
-hyprland
-labwc
-xdg-desktop-portal-wlr
-waybar
-xdg-desktop-portal-hyprland
+# Wayland
 xdg-desktop-portal-gtk
 qt5-wayland
 qt6-wayland
 polkit-kde-agent
-socat
-wlr-randr
 
 # KDE Plasma
 plasma-desktop
@@ -40,10 +33,6 @@ xdg-desktop-portal-kde
 sddm
 weston
 
-# Login
-greetd
-greetd-tuigreet
-
 # Audio (PipeWire)
 pipewire
 pipewire-alsa
@@ -54,6 +43,10 @@ wireplumber
 # GPU (AMD RX 6800 XT)
 mesa
 vulkan-radeon
+libva-mesa-driver
+libva-utils
+lib32-mesa
+lib32-vulkan-radeon
 
 # Bluetooth
 bluez
@@ -66,17 +59,15 @@ gvfs
 tumbler
 xdg-user-dirs
 
-# Screenshots
-grim
-slurp
-wl-clipboard
-
 # Networking
 networkmanager
 cifs-utils
 
 # Gaming
 lutris
+winetricks
+gamemode
+lib32-gamemode
 
 # Media
 vlc
@@ -93,9 +84,6 @@ go
 ghostty
 konsole
 
-# Notifications
-mako
-
 # Utilities
 kcalc
 ark
@@ -104,9 +92,6 @@ unrar
 
 # Communication
 discord
-
-# App Launcher
-rofi
 
 # Fonts
 ttf-dejavu
@@ -121,13 +106,3 @@ ttf-nerd-fonts-symbols
 breeze-gtk
 breeze-icons
 
-# Hyprland plugin build deps
-cmake
-cpio
-
-# Hyprfloat deps
-lua
-lua-posix
-lua-lgi
-jq
-bc

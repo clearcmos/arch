@@ -24,20 +24,19 @@ Idempotent Arch Linux post-install setup script and config files for a personal 
 
 ## Desktop Environment
 
-Hyprland (Wayland) configured in **all-floating mode** (no tiling) for a KDE-like UX. Stack: Hyprland + hyprbars (title bars) + hyprfloat (window snapping) + hyprswitch (alt-tab) + Waybar (bottom taskbar) + Rofi (app launcher) + Mako (notifications) + Thunar (file manager) + Catppuccin Mocha (GTK theme) + greetd/tuigreet (login).
+KDE Plasma 6 on Wayland. Stack: KDE Plasma + KWin + SDDM (login) + Thunar/Dolphin (file managers) + Breeze (theme).
 
 ## Maintenance
 
-- Always keep `README.md` up to date when making changes - remove anything that no longer applies and add new sections as needed.
 - When adding packages, verify online whether they belong in `official.txt` (pacman) or `aur.txt` (paru). Packages move between repos over time.
 - When adding a new operation category to `setup.sh`, add matching validation in the `--dry-run` block. The dry run must stay in sync with the real run.
 - When adding new config files or symlinks, add them to both the `link_config` section in `setup.sh` and the `config_files` array in the dry-run block.
-- Do not update README.md, CLAUDE.md, setup.sh, or dry-run validation when making config/system changes until the changes are tested and confirmed working by the user.
+- Do not update CLAUDE.md, setup.sh, or dry-run validation when making config/system changes until the changes are tested and confirmed working by the user.
 - Run `./setup.sh --dry-run` after any change to package lists or setup logic to catch problems early.
 
 ## Key Conventions
 
 - All idempotency must be preserved when modifying `setup.sh` - never add operations that fail or duplicate on re-run.
 - Package lists use comments for category grouping; maintain this when adding packages.
-- **Every config file must live in this repo and be symlinked to its target location.** Never create or edit config files directly in `~/.config/` or elsewhere - always add them under `config/` in this repo and symlink via `setup.sh`. The repo is the single source of truth for all configuration. Exception: `/etc/greetd/config.toml` is copied (requires root ownership).
+- **Every config file must live in this repo and be symlinked to its target location.** Never create or edit config files directly in `~/.config/` or elsewhere - always add them under `config/` in this repo and symlink via `setup.sh`. The repo is the single source of truth for all configuration. Exception: system configs under `/etc/` are copied (require root ownership).
 - The script targets a single machine with AMD RX 6800 XT GPU and Intel i7-13700K.

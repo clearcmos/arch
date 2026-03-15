@@ -12,15 +12,6 @@ slack-desktop
 1password
 1password-cli
 
-# Window switcher
-hyprswitch
-
-# Hyprfloat deps
-lua-cjson
-
-# Theming
-catppuccin-gtk-theme-mocha
-
 # Gaming
 lutris-world-of-warcraft-dependencies-amd
 

@@ -118,22 +118,15 @@ if $DRY_RUN; then
     echo ""
     info "Checking config source files..."
     config_files=(
-        "config/hyprland/hyprland.conf"
-        "config/waybar/config.jsonc"
-        "config/waybar/style.css"
-        "config/rofi/config.rasi"
-        "config/greetd/config.toml"
         "config/claude-code/settings.json"
         "config/ghostty/config.ghostty"
         "config/claude-code/CLAUDE.md"
         "config/shell/aliases.sh"
-        "config/hyprland/scripts/fake-maximize.sh"
         "config/brave/brave-flags.conf"
-        "config/hyprfloat/commands/snap.lua"
-        "config/hyprfloat/lib/hyprland.lua"
         "config/fontconfig/fonts.conf"
         "config/environment.d/10-amd-gpu.conf"
         "config/environment.d/10-wayland.conf"
+        "config/environment.d/20-gaming.conf"
         "config/kde/plasma-org.kde.plasma.desktop-appletsrc"
         "config/kde/plasmashellrc"
         "config/kde/powerdevilrc"
@@ -321,26 +314,6 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     fi
 done < "$SCRIPT_DIR/services.txt"
 
-# --- Hyprland Plugins (via hyprpm) ---
-
-info "Setting up Hyprland plugins..."
-hyprpm update || true
-if ! hyprpm list | grep -q "hyprbars.*enabled"; then
-    hyprpm add https://github.com/hyprwm/hyprland-plugins || true
-    hyprpm enable hyprbars
-else
-    info "  hyprbars already enabled, skipping."
-fi
-
-# --- Hyprfloat (window snapping) ---
-
-if ! command -v hyprfloat &>/dev/null; then
-    info "Installing hyprfloat..."
-    curl -fsSL https://raw.githubusercontent.com/yz778/hyprfloat/main/install.sh | sh
-else
-    info "hyprfloat already installed, skipping."
-fi
-
 # --- AMD GPU Kernel Params ---
 
 info "Configuring AMD GPU kernel parameters..."
@@ -461,27 +434,6 @@ link_config() {
     info "  linked $dest"
 }
 
-# Hyprland
-link_config "$SCRIPT_DIR/config/hyprland/hyprland.conf" "$HOME/.config/hypr/hyprland.conf"
-link_config "$SCRIPT_DIR/config/hyprland/scripts/focus-raise.sh" "$HOME/.config/hypr/scripts/focus-raise.sh"
-
-# labwc
-link_config "$SCRIPT_DIR/config/labwc/rc.xml" "$HOME/.config/labwc/rc.xml"
-link_config "$SCRIPT_DIR/config/labwc/autostart" "$HOME/.config/labwc/autostart"
-link_config "$SCRIPT_DIR/config/labwc/environment" "$HOME/.config/labwc/environment"
-link_config "$SCRIPT_DIR/config/labwc/themerc-override" "$HOME/.config/labwc/themerc-override"
-
-# Waybar
-link_config "$SCRIPT_DIR/config/waybar/config.jsonc" "$HOME/.config/waybar/config.jsonc"
-link_config "$SCRIPT_DIR/config/waybar/style.css" "$HOME/.config/waybar/style.css"
-
-# Rofi
-link_config "$SCRIPT_DIR/config/rofi/config.rasi" "$HOME/.config/rofi/config.rasi"
-
-# Hyprfloat patches (custom snap with scale/transform/cross-monitor support)
-link_config "$SCRIPT_DIR/config/hyprfloat/commands/snap.lua" "$HOME/.local/share/hyprfloat/commands/snap.lua"
-link_config "$SCRIPT_DIR/config/hyprfloat/lib/hyprland.lua" "$HOME/.local/share/hyprfloat/lib/hyprland.lua"
-
 # KDE panel layout (centered taskbar with spacers, non-floating)
 link_config "$SCRIPT_DIR/config/kde/plasma-org.kde.plasma.desktop-appletsrc" "$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
 link_config "$SCRIPT_DIR/config/kde/plasmashellrc" "$HOME/.config/plasmashellrc"
@@ -494,6 +446,7 @@ link_config "$SCRIPT_DIR/config/fontconfig/fonts.conf" "$HOME/.config/fontconfig
 # Environment variables (AMD GPU, Wayland)
 link_config "$SCRIPT_DIR/config/environment.d/10-amd-gpu.conf" "$HOME/.config/environment.d/10-amd-gpu.conf"
 link_config "$SCRIPT_DIR/config/environment.d/10-wayland.conf" "$HOME/.config/environment.d/10-wayland.conf"
+link_config "$SCRIPT_DIR/config/environment.d/20-gaming.conf" "$HOME/.config/environment.d/20-gaming.conf"
 
 # Brave
 link_config "$SCRIPT_DIR/config/brave/brave-flags.conf" "$HOME/.config/brave-flags.conf"
@@ -552,17 +505,4 @@ fi
 
 echo ""
 info "Setup complete!"
-info "Reboot to start with greetd + Hyprland."
-info ""
-info "Quick reference:"
-info "  SUPER+Return  -> Ghostty"
-info "  SUPER+Space   -> Rofi (app launcher)"
-info "  SUPER+E       -> Thunar"
-info "  SUPER+Q       -> Close window"
-info "  SUPER+F       -> Fullscreen"
-info "  SUPER+Up      -> Maximize"
-info "  SUPER+Left    -> Snap left (repeat to cross monitors)"
-info "  SUPER+Right   -> Snap right (repeat to cross monitors)"
-info "  ALT+Tab       -> Window switcher (hyprswitch)"
-info "  Print         -> Screenshot (select area)"
-info "  SHIFT+Print   -> Screenshot (full screen)"
+info "Reboot to apply changes."
