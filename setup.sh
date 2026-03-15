@@ -39,6 +39,15 @@ if $DRY_RUN; then
         fi
     done
 
+    # --- Check multilib repo ---
+    echo ""
+    info "Checking multilib repo..."
+    if grep -q '^\[multilib\]' /etc/pacman.conf; then
+        ok "multilib enabled in pacman.conf"
+    else
+        warn "multilib not enabled - will be enabled on real run"
+    fi
+
     # --- Validate official packages ---
     echo ""
     info "Validating official packages (pacman --print)..."
@@ -164,18 +173,28 @@ if $DRY_RUN; then
         fi
     done < "$SCRIPT_DIR/services.txt"
 
+    # --- Check mount points ---
+    echo ""
+    info "Checking mount points..."
+    DATA_UUID="60d4fb47-d8fd-4445-adb0-2fd303da775b"
+    if grep -q "$DATA_UUID" /etc/fstab 2>/dev/null; then
+        ok "/mnt/data in fstab"
+    else
+        warn "/mnt/data not in fstab - will be added on real run"
+    fi
+    if grep -q "//192.168.1.4/syno" /etc/fstab 2>/dev/null; then
+        ok "/mnt/syno in fstab"
+    else
+        warn "/mnt/syno not in fstab - will be added on real run"
+    fi
+
     # --- Check GPU kernel config ---
     echo ""
     info "Checking AMD GPU kernel configuration..."
-    if grep -q "amdgpu.pcie_atomics" /etc/default/grub 2>/dev/null; then
+    if grep -q "amdgpu.gpu_recovery" /etc/default/grub 2>/dev/null; then
         ok "GRUB amdgpu params set"
     else
         warn "GRUB amdgpu params not set - will be added on real run"
-    fi
-    if grep -q "^MODULES=.*amdgpu" /etc/mkinitcpio.conf 2>/dev/null; then
-        ok "amdgpu in mkinitcpio MODULES"
-    else
-        warn "amdgpu not in mkinitcpio MODULES - will be added on real run"
     fi
 
     # --- Check Bluetooth devices ---
@@ -207,6 +226,17 @@ fi
 # =============================================================
 # REAL RUN
 # =============================================================
+
+# --- Enable multilib repo ---
+
+info "Ensuring multilib repo is enabled..."
+if grep -q '^\[multilib\]' /etc/pacman.conf; then
+    info "  multilib already enabled."
+else
+    # Uncomment the [multilib] section (header + Include line)
+    sudo sed -i '/^#\[multilib\]/{s/^#//;n;s/^#//}' /etc/pacman.conf
+    info "  enabled multilib repo."
+fi
 
 # --- System Update ---
 
@@ -317,24 +347,13 @@ info "Configuring AMD GPU kernel parameters..."
 
 # Add amdgpu kernel params to GRUB (idempotent)
 GRUB_DEFAULT="/etc/default/grub"
-AMDGPU_PARAMS="amdgpu.pcie_atomics=1 amdgpu.ppfeaturemask=0xffffffff amdgpu.gpu_recovery=1"
-if grep -q "amdgpu.pcie_atomics" "$GRUB_DEFAULT" 2>/dev/null; then
+AMDGPU_PARAMS="amdgpu.gpu_recovery=1"
+if grep -q "amdgpu.gpu_recovery" "$GRUB_DEFAULT" 2>/dev/null; then
     info "  GRUB amdgpu params already set."
 else
     sudo sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1 $AMDGPU_PARAMS\"/" "$GRUB_DEFAULT"
     sudo grub-mkconfig -o /boot/grub/grub.cfg
     info "  added amdgpu params to GRUB and regenerated config."
-fi
-
-# Load amdgpu early via initramfs (idempotent)
-if grep -q "^MODULES=.*amdgpu" /etc/mkinitcpio.conf 2>/dev/null; then
-    info "  amdgpu already in mkinitcpio MODULES."
-else
-    sudo sed -i 's/^MODULES=(\(.*\))/MODULES=(amdgpu \1)/' /etc/mkinitcpio.conf
-    # Clean up double spaces if MODULES was empty
-    sudo sed -i 's/^MODULES=(amdgpu )/MODULES=(amdgpu)/' /etc/mkinitcpio.conf
-    sudo mkinitcpio -P
-    info "  added amdgpu to mkinitcpio MODULES and regenerated initramfs."
 fi
 
 # --- KDE Font Rendering ---
@@ -396,6 +415,38 @@ if command -v kscreen-doctor &>/dev/null; then
 else
     warn "  kscreen-doctor not found, skipping monitor layout."
 fi
+
+# --- Mount Points (fstab) ---
+
+info "Configuring mount points..."
+
+# Data disk (nvme0n1p1)
+DATA_UUID="60d4fb47-d8fd-4445-adb0-2fd303da775b"
+DATA_FSTAB="UUID=$DATA_UUID /mnt/data ext4 defaults 0 2"
+if grep -q "$DATA_UUID" /etc/fstab 2>/dev/null; then
+    info "  /mnt/data already in fstab."
+else
+    sudo mkdir -p /mnt/data
+    echo "$DATA_FSTAB" | sudo tee -a /etc/fstab >/dev/null
+    info "  added /mnt/data to fstab."
+fi
+sudo mkdir -p /mnt/data
+mountpoint -q /mnt/data || sudo mount /mnt/data
+info "  /mnt/data mounted."
+
+# NAS (Synology)
+SYNO_SHARE="//192.168.1.4/syno"
+SYNO_FSTAB="$SYNO_SHARE /mnt/syno cifs credentials=/etc/cifs/credentials,uid=1000,gid=100,vers=3.0,file_mode=0770,dir_mode=0770,soft,nounix,serverino,mapposix,noauto,x-systemd.automount,x-systemd.idle-timeout=60 0 0"
+if grep -q "$SYNO_SHARE" /etc/fstab 2>/dev/null; then
+    info "  /mnt/syno already in fstab."
+else
+    sudo mkdir -p /mnt/syno
+    echo "$SYNO_FSTAB" | sudo tee -a /etc/fstab >/dev/null
+    info "  added /mnt/syno to fstab."
+fi
+sudo mkdir -p /mnt/syno
+sudo systemctl daemon-reload
+info "  /mnt/syno configured (automount on access)."
 
 # --- Deploy Configs ---
 

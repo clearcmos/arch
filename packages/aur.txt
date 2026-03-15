@@ -21,5 +21,8 @@ lua-cjson
 # Theming
 catppuccin-gtk-theme-mocha
 
+# Gaming
+lutris-world-of-warcraft-dependencies-amd
+
 # Media
 spotify

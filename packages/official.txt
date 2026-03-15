@@ -38,6 +38,7 @@ powerdevil
 spectacle
 xdg-desktop-portal-kde
 sddm
+weston
 
 # Login
 greetd
@@ -74,6 +75,9 @@ wl-clipboard
 networkmanager
 cifs-utils
 
+# Gaming
+lutris
+
 # Media
 vlc
 obs-studio
@@ -87,9 +91,16 @@ go
 
 # Terminal
 ghostty
+konsole
 
 # Notifications
 mako
+
+# Utilities
+kcalc
+ark
+p7zip
+unrar
 
 # Communication
 discord
@@ -100,7 +111,9 @@ rofi
 # Fonts
 ttf-dejavu
 ttf-liberation
+ttf-jetbrains-mono
 noto-fonts
+noto-fonts-cjk
 noto-fonts-emoji
 ttf-nerd-fonts-symbols
 
