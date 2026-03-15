@@ -4,13 +4,11 @@ RightButton;NoModifier=org.kde.contextmenu
 [ActionPlugins][1]
 RightButton;NoModifier=org.kde.contextmenu
 
-[Containments][1]
-ItemGeometries-1707x960=
-ItemGeometries-1969x1108=
+[Containments][31]
+ItemGeometries-1108x1969=
 ItemGeometries-960x1707=
-ItemGeometriesHorizontal=
 ItemGeometriesVertical=
-activityId=d6de80fd-4489-4adf-a4f7-23db974820cf
+activityId=c8c8f4a0-79ce-4530-b7e7-8603c5a54cbc
 formfactor=0
 immutability=1
 lastScreen=0
@@ -18,10 +16,8 @@ location=0
 plugin=org.kde.plasma.folder
 wallpaperplugin=org.kde.image
 
-[Containments][2]
-ItemGeometries-2560x1440=
-ItemGeometriesHorizontal=
-activityId=d6de80fd-4489-4adf-a4f7-23db974820cf
+[Containments][32]
+activityId=c8c8f4a0-79ce-4530-b7e7-8603c5a54cbc
 formfactor=0
 immutability=1
 lastScreen=1
@@ -29,10 +25,8 @@ location=0
 plugin=org.kde.plasma.folder
 wallpaperplugin=org.kde.image
 
-[Containments][3]
-ItemGeometries-1969x1108=
-ItemGeometriesHorizontal=
-activityId=d6de80fd-4489-4adf-a4f7-23db974820cf
+[Containments][33]
+activityId=c8c8f4a0-79ce-4530-b7e7-8603c5a54cbc
 formfactor=0
 immutability=1
 lastScreen=2
@@ -64,6 +58,14 @@ fontWeight=400
 immutability=1
 plugin=org.kde.plasma.showdesktop
 
+[Containments][4][Applets][27]
+immutability=1
+plugin=org.kde.plasma.panelspacer
+
+[Containments][4][Applets][28]
+immutability=1
+plugin=org.kde.plasma.panelspacer
+
 [Containments][4][Applets][5]
 immutability=1
 plugin=org.kde.plasma.kickoff
@@ -75,20 +77,12 @@ popupWidth=647
 [Containments][4][Applets][5][Configuration][General]
 favoritesPortedToKAstats=true
 
-[Containments][4][Applets][27]
-immutability=1
-plugin=org.kde.plasma.panelspacer
-
 [Containments][4][Applets][7]
 immutability=1
 plugin=org.kde.plasma.icontasks
 
 [Containments][4][Applets][7][Configuration][General]
-launchers=applications:org.kde.dolphin.desktop,applications:brave-browser.desktop,applications:com.mitchellh.ghostty.desktop
-
-[Containments][4][Applets][28]
-immutability=1
-plugin=org.kde.plasma.panelspacer
+launchers=applications:brave-browser.desktop,applications:org.kde.dolphin.desktop,applications:com.mitchellh.ghostty.desktop
 
 [Containments][4][Applets][9]
 activityId=
@@ -164,9 +158,17 @@ plugin=org.kde.plasma.battery
 immutability=1
 plugin=org.kde.plasma.mediacontroller
 
+[Containments][4][Applets][9][Applets][29]
+immutability=1
+plugin=org.kde.plasma.vault
+
+[Containments][4][Applets][9][Applets][30]
+immutability=1
+plugin=org.kde.plasma.printmanager
+
 [Containments][4][Applets][9][General]
-extraItems=org.kde.plasma.keyboardlayout,org.kde.plasma.keyboardindicator,org.kde.plasma.notifications,org.kde.plasma.clipboard,org.kde.plasma.mediacontroller,org.kde.plasma.cameraindicator,org.kde.plasma.brightness,org.kde.plasma.weather,org.kde.plasma.devicenotifier,org.kde.plasma.manage-inputmethod,org.kde.plasma.bluetooth,org.kde.plasma.battery,org.kde.plasma.volume,org.kde.kscreen,org.kde.plasma.networkmanagement
-knownItems=org.kde.plasma.keyboardlayout,org.kde.plasma.keyboardindicator,org.kde.plasma.notifications,org.kde.plasma.clipboard,org.kde.plasma.mediacontroller,org.kde.plasma.cameraindicator,org.kde.plasma.brightness,org.kde.plasma.weather,org.kde.plasma.devicenotifier,org.kde.plasma.manage-inputmethod,org.kde.plasma.bluetooth,org.kde.plasma.battery,org.kde.plasma.volume,org.kde.kscreen,org.kde.plasma.networkmanagement
+extraItems=org.kde.plasma.keyboardlayout,org.kde.plasma.keyboardindicator,org.kde.plasma.notifications,org.kde.plasma.clipboard,org.kde.plasma.mediacontroller,org.kde.plasma.cameraindicator,org.kde.plasma.brightness,org.kde.plasma.weather,org.kde.plasma.devicenotifier,org.kde.plasma.manage-inputmethod,org.kde.plasma.bluetooth,org.kde.plasma.battery,org.kde.plasma.volume,org.kde.kscreen,org.kde.plasma.networkmanagement,org.kde.plasma.vault,org.kde.plasma.printmanager
+knownItems=org.kde.plasma.keyboardlayout,org.kde.plasma.keyboardindicator,org.kde.plasma.notifications,org.kde.plasma.clipboard,org.kde.plasma.mediacontroller,org.kde.plasma.cameraindicator,org.kde.plasma.brightness,org.kde.plasma.weather,org.kde.plasma.devicenotifier,org.kde.plasma.manage-inputmethod,org.kde.plasma.bluetooth,org.kde.plasma.battery,org.kde.plasma.volume,org.kde.kscreen,org.kde.plasma.networkmanagement,org.kde.plasma.vault,org.kde.plasma.printmanager
 
 [Containments][4][General]
 AppletOrder=27;5;7;28;9;21;22

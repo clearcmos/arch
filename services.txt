@@ -3,6 +3,7 @@ NetworkManager
 bluetooth
 sddm
 sshd
+pcscd
 
 # User services (enabled via systemctl --user enable)
 # PipeWire is socket-activated by default on modern Arch,

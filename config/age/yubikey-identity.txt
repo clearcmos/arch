@@ -1,0 +1,7 @@
+#       Serial: 16422009, Slot: 1
+#         Name: ssh-key-cmos-arch
+#      Created: Sun, 15 Mar 2026 18:53:18 +0000
+#   PIN policy: Always (A PIN is required for every decryption, if set)
+# Touch policy: Always (A physical touch is required for every decryption)
+#    Recipient: age1yubikey1qgxyk7xf9fzwm20qjkqhudeafnwhwrrkdf67muwj9zy4dshe823jc5zqvsu
+AGE-PLUGIN-YUBIKEY-10X205QYZAF8FRFGND7HWM

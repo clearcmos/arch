@@ -64,8 +64,16 @@ networkmanager
 openssh
 cifs-utils
 
+# Security (YubiKey + age encryption)
+age
+age-plugin-yubikey
+ccid
+pcsclite
+yubikey-manager
+
 # Gaming
 lutris
+wine-staging
 winetricks
 gamemode
 lib32-gamemode
@@ -80,6 +88,7 @@ python-pip
 nodejs
 npm
 go
+github-cli
 
 # Terminal
 ghostty
@@ -88,7 +97,7 @@ konsole
 # Utilities
 kcalc
 ark
-p7zip
+7zip
 unrar
 
 # Communication

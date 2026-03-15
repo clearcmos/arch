@@ -18,25 +18,35 @@ Idempotent Arch Linux post-install setup script and config files for a personal 
 4. AUR packages (paru)
 5. Rust via rustup if missing
 6. Nix via Determinate Systems installer if missing
-7. Claude Code via npm if missing
-8. Enable systemd services
-9. Symlink config files
+7. Claude Code if missing
+8. Enable systemd services (including `pcscd` for YubiKey)
+9. AMD GPU kernel params
+10. Font rendering (system-level fontconfig in `/etc/fonts/conf.d/`)
+11. KDE dark theme (BreezeDark)
+12. Mount points (data disk + NAS)
+13. SSH key restore from NAS (age-encrypted, YubiKey decryption)
+14. Git/GitHub config
+15. SSH server config
+16. Symlink config files
+17. Bluetooth pairing
 
 ## Desktop Environment
 
-KDE Plasma 6 on Wayland. Stack: KDE Plasma + KWin + SDDM (login) + Thunar/Dolphin (file managers) + Breeze (theme).
+KDE Plasma 6 on Wayland. Stack: KDE Plasma + KWin + SDDM (login) + Thunar/Dolphin (file managers) + BreezeDark (theme).
+
+## SSH Key Management
+
+SSH keys are encrypted with `age` + `age-plugin-yubikey` and stored on the NAS at `/mnt/syno/backups/ssh/cmos-arch/`. The YubiKey identity file lives in `config/age/yubikey-identity.txt` (safe to commit - just a slot reference). Decryption requires the physical YubiKey (PIN + touch). On fresh install, the script restores the key automatically.
 
 ## Maintenance
 
 - When adding packages, verify online whether they belong in `official.txt` (pacman) or `aur.txt` (paru). Packages move between repos over time.
-- When adding a new operation category to `setup.sh`, add matching validation in the `--dry-run` block. The dry run must stay in sync with the real run.
-- When adding new config files or symlinks, add them to both the `link_config` section in `setup.sh` and the `config_files` array in the dry-run block.
-- Do not update CLAUDE.md, setup.sh, or dry-run validation when making config/system changes until the changes are tested and confirmed working by the user.
-- Run `./setup.sh --dry-run` after any change to package lists or setup logic to catch problems early.
+- When adding new config files or symlinks, add them to the `link_config` section in `setup.sh`.
+- Do not update CLAUDE.md or setup.sh when making config/system changes until the changes are tested and confirmed working by the user.
 
 ## Key Conventions
 
 - All idempotency must be preserved when modifying `setup.sh` - never add operations that fail or duplicate on re-run.
 - Package lists use comments for category grouping; maintain this when adding packages.
-- **Every config file must live in this repo and be symlinked to its target location.** Never create or edit config files directly in `~/.config/` or elsewhere - always add them under `config/` in this repo and symlink via `setup.sh`. The repo is the single source of truth for all configuration. Exception: system configs under `/etc/` are copied (require root ownership).
+- **Every config file must live in this repo and be symlinked to its target location.** Never create or edit config files directly in `~/.config/` or elsewhere - always add them under `config/` in this repo and symlink via `setup.sh`. The repo is the single source of truth for all configuration. Exception: system configs under `/etc/` are copied (require root ownership), and system-level fontconfig uses symlinks from `/usr/share/fontconfig/conf.avail/` to `/etc/fonts/conf.d/`.
 - The script targets a single machine with AMD RX 6800 XT GPU and Intel i7-13700K.
