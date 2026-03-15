@@ -130,6 +130,8 @@ if $DRY_RUN; then
         "config/kde/plasma-org.kde.plasma.desktop-appletsrc"
         "config/kde/plasmashellrc"
         "config/kde/powerdevilrc"
+        "config/ssh/sshd_config"
+        "config/ssh/authorized_keys"
     )
     for f in "${config_files[@]}"; do
         if [[ -f "$SCRIPT_DIR/$f" ]]; then
@@ -203,6 +205,24 @@ if $DRY_RUN; then
         ok "Soundcore Life Q30 ($Q30_MAC) trusted"
     else
         warn "Soundcore Life Q30 ($Q30_MAC) not trusted - will trust on real run"
+    fi
+
+    # --- Check SSH config ---
+    echo ""
+    info "Checking SSH configuration..."
+    if diff -q "$SCRIPT_DIR/config/ssh/sshd_config" /etc/ssh/sshd_config &>/dev/null; then
+        ok "sshd_config matches"
+    else
+        warn "sshd_config differs or missing - will be deployed on real run"
+    fi
+    if [[ -e "$HOME/.ssh/authorized_keys" ]]; then
+        if diff -q "$SCRIPT_DIR/config/ssh/authorized_keys" "$HOME/.ssh/authorized_keys" &>/dev/null; then
+            ok "authorized_keys matches"
+        else
+            warn "authorized_keys differs - will be updated on real run"
+        fi
+    else
+        warn "authorized_keys not found - will be deployed on real run"
     fi
 
     # --- Summary ---
@@ -420,6 +440,34 @@ fi
 sudo mkdir -p /mnt/syno
 sudo systemctl daemon-reload
 info "  /mnt/syno configured (automount on access)."
+
+# --- SSH Configuration ---
+
+info "Configuring SSH..."
+
+# Deploy hardened sshd_config (key auth only, no root login)
+if diff -q "$SCRIPT_DIR/config/ssh/sshd_config" /etc/ssh/sshd_config &>/dev/null; then
+    info "  sshd_config already up to date."
+else
+    sudo cp "$SCRIPT_DIR/config/ssh/sshd_config" /etc/ssh/sshd_config
+    sudo chmod 644 /etc/ssh/sshd_config
+    info "  deployed sshd_config."
+    if systemctl is-active sshd &>/dev/null; then
+        sudo systemctl reload sshd
+        info "  reloaded sshd."
+    fi
+fi
+
+# Deploy authorized_keys for user nicholas
+mkdir -p "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
+if diff -q "$SCRIPT_DIR/config/ssh/authorized_keys" "$HOME/.ssh/authorized_keys" &>/dev/null; then
+    info "  authorized_keys already up to date."
+else
+    cp "$SCRIPT_DIR/config/ssh/authorized_keys" "$HOME/.ssh/authorized_keys"
+    chmod 600 "$HOME/.ssh/authorized_keys"
+    info "  deployed authorized_keys."
+fi
 
 # --- Deploy Configs ---
 

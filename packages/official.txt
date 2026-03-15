@@ -61,6 +61,7 @@ xdg-user-dirs
 
 # Networking
 networkmanager
+openssh
 cifs-utils
 
 # Gaming
