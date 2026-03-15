@@ -22,6 +22,23 @@ polkit-kde-agent
 socat
 wlr-randr
 
+# KDE Plasma
+plasma-desktop
+kwin
+kscreen
+plasma-workspace
+plasma-workspace-wallpapers
+breeze
+plasma-pa
+plasma-nm
+bluedevil
+kde-gtk-config
+kdeplasma-addons
+powerdevil
+spectacle
+xdg-desktop-portal-kde
+sddm
+
 # Login
 greetd
 greetd-tuigreet
@@ -43,6 +60,7 @@ bluez-utils
 
 # File Manager
 thunar
+dolphin
 gvfs
 tumbler
 xdg-user-dirs
@@ -54,6 +72,7 @@ wl-clipboard
 
 # Networking
 networkmanager
+cifs-utils
 
 # Media
 vlc

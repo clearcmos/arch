@@ -122,6 +122,12 @@ if $DRY_RUN; then
         "config/brave/brave-flags.conf"
         "config/hyprfloat/commands/snap.lua"
         "config/hyprfloat/lib/hyprland.lua"
+        "config/fontconfig/fonts.conf"
+        "config/environment.d/10-amd-gpu.conf"
+        "config/environment.d/10-wayland.conf"
+        "config/kde/plasma-org.kde.plasma.desktop-appletsrc"
+        "config/kde/plasmashellrc"
+        "config/kde/powerdevilrc"
     )
     for f in "${config_files[@]}"; do
         if [[ -f "$SCRIPT_DIR/$f" ]]; then
@@ -157,6 +163,20 @@ if $DRY_RUN; then
             fi
         fi
     done < "$SCRIPT_DIR/services.txt"
+
+    # --- Check GPU kernel config ---
+    echo ""
+    info "Checking AMD GPU kernel configuration..."
+    if grep -q "amdgpu.pcie_atomics" /etc/default/grub 2>/dev/null; then
+        ok "GRUB amdgpu params set"
+    else
+        warn "GRUB amdgpu params not set - will be added on real run"
+    fi
+    if grep -q "^MODULES=.*amdgpu" /etc/mkinitcpio.conf 2>/dev/null; then
+        ok "amdgpu in mkinitcpio MODULES"
+    else
+        warn "amdgpu not in mkinitcpio MODULES - will be added on real run"
+    fi
 
     # --- Check Bluetooth devices ---
     echo ""
@@ -291,6 +311,92 @@ else
     info "hyprfloat already installed, skipping."
 fi
 
+# --- AMD GPU Kernel Params ---
+
+info "Configuring AMD GPU kernel parameters..."
+
+# Add amdgpu kernel params to GRUB (idempotent)
+GRUB_DEFAULT="/etc/default/grub"
+AMDGPU_PARAMS="amdgpu.pcie_atomics=1 amdgpu.ppfeaturemask=0xffffffff amdgpu.gpu_recovery=1"
+if grep -q "amdgpu.pcie_atomics" "$GRUB_DEFAULT" 2>/dev/null; then
+    info "  GRUB amdgpu params already set."
+else
+    sudo sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1 $AMDGPU_PARAMS\"/" "$GRUB_DEFAULT"
+    sudo grub-mkconfig -o /boot/grub/grub.cfg
+    info "  added amdgpu params to GRUB and regenerated config."
+fi
+
+# Load amdgpu early via initramfs (idempotent)
+if grep -q "^MODULES=.*amdgpu" /etc/mkinitcpio.conf 2>/dev/null; then
+    info "  amdgpu already in mkinitcpio MODULES."
+else
+    sudo sed -i 's/^MODULES=(\(.*\))/MODULES=(amdgpu \1)/' /etc/mkinitcpio.conf
+    # Clean up double spaces if MODULES was empty
+    sudo sed -i 's/^MODULES=(amdgpu )/MODULES=(amdgpu)/' /etc/mkinitcpio.conf
+    sudo mkinitcpio -P
+    info "  added amdgpu to mkinitcpio MODULES and regenerated initramfs."
+fi
+
+# --- KDE Font Rendering ---
+
+info "Configuring KDE font rendering..."
+if command -v kwriteconfig6 &>/dev/null; then
+    kwriteconfig6 --group General --key XftSubPixel rgb
+    kwriteconfig6 --group General --key XftHintStyle hintmedium
+    kwriteconfig6 --group General --key XftAntialias 1
+    info "  set KDE fonts: sub-pixel RGB, medium hinting, anti-aliasing on."
+else
+    warn "  kwriteconfig6 not found, skipping KDE font config (set manually in System Settings)."
+fi
+
+# --- KDE Monitor Layout (PLP: Portrait-Landscape-Portrait) ---
+
+info "Applying KDE monitor layout..."
+if command -v kscreen-doctor &>/dev/null; then
+    # Check what monitors are connected
+    KSCREEN_OUT=$(kscreen-doctor -o 2>&1) || true
+
+    HDMI_CONNECTED=$(echo "$KSCREEN_OUT" | grep -c "HDMI-A-1" || true)
+    DP2_CONNECTED=$(echo "$KSCREEN_OUT" | grep -c "DP-2" || true)
+    DP1_CONNECTED=$(echo "$KSCREEN_OUT" | grep -c "DP-1" || true)
+
+    if [[ "$HDMI_CONNECTED" -gt 0 && "$DP2_CONNECTED" -gt 0 && "$DP1_CONNECTED" -gt 0 ]]; then
+        # Triple monitor PLP layout
+        # Side monitors at 1.5 scale rotated = 960x1707 each
+        # Middle monitor at 1.5 scale = 1707x960
+        # Positions: left at 0,0, middle at 960,246, right at 2667,0
+        kscreen-doctor \
+            output.HDMI-A-1.mode.2560x1440@60 \
+            output.HDMI-A-1.scale.1.5 \
+            output.HDMI-A-1.rotation.left \
+            output.HDMI-A-1.position.0,0 \
+            output.HDMI-A-1.enable \
+            output.DP-2.mode.2560x1440@60 \
+            output.DP-2.scale.1.5 \
+            output.DP-2.position.960,246 \
+            output.DP-2.enable \
+            output.DP-2.priority.1 \
+            output.DP-1.mode.2560x1440@60 \
+            output.DP-1.scale.1.5 \
+            output.DP-1.rotation.left \
+            output.DP-1.position.2667,0 \
+            output.DP-1.enable
+        info "  applied triple monitor PLP layout (DP-2 primary)."
+    elif [[ "$DP2_CONNECTED" -gt 0 ]]; then
+        # Single/partial - at least set DP-2 as primary
+        kscreen-doctor \
+            output.DP-2.mode.2560x1440@60 \
+            output.DP-2.scale.1.5 \
+            output.DP-2.enable \
+            output.DP-2.priority.1
+        info "  set DP-2 as primary."
+    else
+        warn "  expected monitors not detected, skipping layout."
+    fi
+else
+    warn "  kscreen-doctor not found, skipping monitor layout."
+fi
+
 # --- Deploy Configs ---
 
 info "Deploying config files..."
@@ -325,6 +431,19 @@ link_config "$SCRIPT_DIR/config/rofi/config.rasi" "$HOME/.config/rofi/config.ras
 link_config "$SCRIPT_DIR/config/hyprfloat/commands/snap.lua" "$HOME/.local/share/hyprfloat/commands/snap.lua"
 link_config "$SCRIPT_DIR/config/hyprfloat/lib/hyprland.lua" "$HOME/.local/share/hyprfloat/lib/hyprland.lua"
 
+# KDE panel layout (centered taskbar with spacers, non-floating)
+link_config "$SCRIPT_DIR/config/kde/plasma-org.kde.plasma.desktop-appletsrc" "$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
+link_config "$SCRIPT_DIR/config/kde/plasmashellrc" "$HOME/.config/plasmashellrc"
+link_config "$SCRIPT_DIR/config/kde/powerdevilrc" "$HOME/.config/powerdevilrc"
+link_config "$SCRIPT_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
+
+# Fontconfig (crisp font rendering: medium hinting, subpixel RGB, LCD filter)
+link_config "$SCRIPT_DIR/config/fontconfig/fonts.conf" "$HOME/.config/fontconfig/fonts.conf"
+
+# Environment variables (AMD GPU, Wayland)
+link_config "$SCRIPT_DIR/config/environment.d/10-amd-gpu.conf" "$HOME/.config/environment.d/10-amd-gpu.conf"
+link_config "$SCRIPT_DIR/config/environment.d/10-wayland.conf" "$HOME/.config/environment.d/10-wayland.conf"
+
 # Brave
 link_config "$SCRIPT_DIR/config/brave/brave-flags.conf" "$HOME/.config/brave-flags.conf"
 
@@ -346,10 +465,10 @@ if ! grep -q 'shell/aliases.sh' "$HOME/.bashrc" 2>/dev/null; then
     info "  added aliases source line to ~/.bashrc"
 fi
 
-# greetd (system config, needs root)
-sudo mkdir -p /etc/greetd
-sudo cp "$SCRIPT_DIR/config/greetd/config.toml" /etc/greetd/config.toml
-info "  copied greetd config to /etc/greetd/config.toml"
+# SDDM (system config, needs root)
+sudo mkdir -p /etc/sddm.conf.d
+sudo cp "$SCRIPT_DIR/config/sddm/sddm.conf" /etc/sddm.conf.d/kde.conf
+info "  copied SDDM config to /etc/sddm.conf.d/kde.conf"
 
 # Brave policies (system-wide, needs root)
 sudo mkdir -p /etc/brave/policies/managed
