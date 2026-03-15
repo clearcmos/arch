@@ -153,6 +153,14 @@ for preset in "${font_presets[@]}"; do
     fi
 done
 
+# Deploy local.conf (overrides KDE's user-level fonts.conf, loaded via 51-local.conf)
+if diff -q "$SCRIPT_DIR/config/fontconfig/local.conf" /etc/fonts/local.conf &>/dev/null; then
+    info "  /etc/fonts/local.conf already up to date."
+else
+    sudo cp "$SCRIPT_DIR/config/fontconfig/local.conf" /etc/fonts/local.conf
+    info "  deployed /etc/fonts/local.conf"
+fi
+
 # --- Disable WiFi (desktop uses Ethernet only) ---
 
 info "Disabling WiFi..."
