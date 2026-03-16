@@ -17,7 +17,10 @@
         "removable": false,
         "uki": false
     },
-    "custom_commands": [],
+    "custom_commands": [
+        "git clone https://github.com/clearcmos/arch.git /home/nicholas/arch",
+        "chown -R nicholas:nicholas /home/nicholas/arch"
+    ],
     "disk_config": {
         "btrfs_options": {
             "snapshot_config": null
