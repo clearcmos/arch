@@ -59,6 +59,12 @@ fi
 
 # --- Rust (via rustup) ---
 
+# Remove distro rust if present (conflicts with rustup, pulled in by paru build)
+if pacman -Qi rust &>/dev/null && ! command -v rustup &>/dev/null; then
+    info "Removing distro rust package (replaced by rustup)..."
+    sudo pacman -Rdd --noconfirm rust
+fi
+
 if ! command -v rustup &>/dev/null; then
     info "Installing Rust via rustup..."
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
