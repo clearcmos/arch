@@ -4,7 +4,7 @@ brave-bin
 curseforge
 fsearch
 google-chrome
-localsend
+localsend-bin
 lutris-world-of-warcraft-dependencies-amd
 ocrmypdf
 slack-desktop
