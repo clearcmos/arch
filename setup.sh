@@ -91,7 +91,9 @@ fi
 
 # --- Claude Code ---
 
-if [[ -f "$HOME/.local/bin/claude" ]]; then
+if [[ -e "$HOME/.local/bin/claude" ]]; then
+    info "Claude Code already installed, skipping."
+else
     info "Installing Claude Code..."
     curl -fsSL https://claude.ai/install.sh | bash
     # Ensure ~/.local/bin is in PATH
@@ -100,8 +102,6 @@ if [[ -f "$HOME/.local/bin/claude" ]]; then
         info "  added ~/.local/bin to PATH in ~/.bashrc"
     fi
     export PATH="$HOME/.local/bin:$PATH"
-else
-    info "Claude Code already installed, skipping."
 fi
 
 # --- Enable Services ---
