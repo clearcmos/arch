@@ -7,6 +7,9 @@
 credentials*
 secrets*
 
+# Logs
+setup.log
+
 # Editor
 *.swp
 *.swo

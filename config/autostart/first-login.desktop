@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=First Login Setup
+Exec=konsole -e /home/nicholas/arch/install/first-login.sh
+X-KDE-autostart-phase=2

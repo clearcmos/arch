@@ -21,7 +21,7 @@ bash <(curl -sL clearcmos.com/go)
 
 This fetches `install/bootstrap.sh` (via Cloudflare redirect), which downloads the install config and runs `install.sh`. The script prompts for root and user passwords, then runs archinstall. After install, the repo is automatically cloned to `~/arch` via archinstall's custom commands.
 
-After reboot, run `~/arch/setup.sh` to complete post-install setup.
+After reboot, log in via tuigreet — a konsole window opens automatically and runs `setup.sh`. On success it offers to reboot; on failure it offers to open the log.
 
 ## Setup Flow Order
 

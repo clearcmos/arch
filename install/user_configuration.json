@@ -19,7 +19,9 @@
     },
     "custom_commands": [
         "git clone https://github.com/clearcmos/arch.git /home/nicholas/arch",
-        "chown -R nicholas:nicholas /home/nicholas/arch"
+        "mkdir -p /home/nicholas/.config/autostart",
+        "cp /home/nicholas/arch/config/autostart/first-login.desktop /home/nicholas/.config/autostart/",
+        "chown -R nicholas:nicholas /home/nicholas/arch /home/nicholas/.config/autostart"
     ],
     "disk_config": {
         "btrfs_options": {

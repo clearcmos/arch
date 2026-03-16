@@ -2,6 +2,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG_FILE="$SCRIPT_DIR/setup.log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+trap 'sleep 0.1' EXIT  # allow tee to flush
+echo "=== setup.sh started at $(date) ==="
 
 # --- Helpers ---
 

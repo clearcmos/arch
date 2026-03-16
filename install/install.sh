@@ -10,27 +10,27 @@ CREDS="/tmp/user_credentials.json"
 read_password() {
     local label="$1" pw pw2
     while true; do
-        read -rsp "Enter $label password: " pw; echo
-        read -rsp "Confirm $label password: " pw2; echo
+        read -rsp "Enter $label password: " pw; echo >&2
+        read -rsp "Confirm $label password: " pw2; echo >&2
         if [[ "$pw" == "$pw2" ]]; then
-            echo "$pw"
+            printf '%s' "$pw"
             return
         fi
-        echo "Passwords do not match. Try again."
+        echo "Passwords do not match. Try again." >&2
     done
 }
 
 # --- Yescrypt hashing via Python (matches archinstall's own method) ---
 
 hash_password() {
-    local pw="$1"
     python3 -c "
-import ctypes, ctypes.util
+import sys, ctypes, ctypes.util
+pw = sys.stdin.buffer.read()
 lib = ctypes.CDLL(ctypes.util.find_library('crypt'))
 lib.crypt.restype = ctypes.c_char_p
 lib.crypt_gensalt.restype = ctypes.c_char_p
 salt = lib.crypt_gensalt(b'\$y\$', 0, None, 0)
-print(lib.crypt(b'''$pw''', salt).decode())
+print(lib.crypt(pw, salt).decode())
 "
 }
 
@@ -42,8 +42,8 @@ user_pw=$(read_password "nicholas")
 
 echo
 echo "Hashing passwords..."
-root_hash=$(hash_password "$root_pw")
-user_hash=$(hash_password "$user_pw")
+root_hash=$(printf '%s' "$root_pw" | hash_password)
+user_hash=$(printf '%s' "$user_pw" | hash_password)
 
 # --- Write temporary credentials ---
 
