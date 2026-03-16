@@ -142,7 +142,6 @@ info "Configuring AMD GPU kernel parameters..."
 # Add amdgpu kernel params to /etc/kernel/cmdline (systemd-boot)
 KERNEL_PARAMS=(
     "amdgpu.gpu_recovery=1"
-    "amdgpu.pcie_atomics=1"
     "nmi_watchdog=0"
 )
 ALL_SET=true
@@ -424,6 +423,17 @@ copy_config "$SCRIPT_DIR/config/kde/powerdevilrc" "$HOME/.config/powerdevilrc"
 copy_config "$SCRIPT_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
 copy_config "$SCRIPT_DIR/config/kde/kwinoutputconfig.json" "$HOME/.config/kwinoutputconfig.json"
 
+# Bluetooth main config (system-level, requires root)
+if ! diff -q "$SCRIPT_DIR/config/bluetooth/main.conf" /etc/bluetooth/main.conf &>/dev/null; then
+    sudo cp "$SCRIPT_DIR/config/bluetooth/main.conf" /etc/bluetooth/main.conf
+    info "  copied /etc/bluetooth/main.conf"
+else
+    info "  /etc/bluetooth/main.conf already up to date."
+fi
+
+# WirePlumber Bluetooth audio (codecs, roles, hardware volume)
+link_config "$SCRIPT_DIR/config/wireplumber/51-bluez-config.conf" "$HOME/.config/wireplumber/wireplumber.conf.d/51-bluez-config.conf"
+
 # Bluetooth auto-connect on login
 link_config "$SCRIPT_DIR/config/autostart/bluetooth.desktop" "$HOME/.config/autostart/bluetooth.desktop"
 
@@ -508,6 +518,10 @@ for host in "${!DNS_ENTRIES[@]}"; do
 done
 
 # --- Bluetooth Devices ---
+
+# Restart bluetooth to pick up any main.conf changes (ControllerMode, etc.)
+sudo systemctl restart bluetooth
+sleep 1
 
 info "Configuring Bluetooth devices..."
 

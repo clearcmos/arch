@@ -51,6 +51,8 @@ lib32-vulkan-radeon
 # Bluetooth
 bluez
 bluez-utils
+libldac
+libfreeaptx
 
 # File Manager
 thunar

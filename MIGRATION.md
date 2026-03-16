@@ -711,3 +711,831 @@ Adapt to check pacman, AUR, flatpak, docker, npm updates
 45. Libvirt/KVM setup
 46. nixvm disk provisioner
 47. VM management commands
+
+---
+---
+
+# Appendix A - Detailed Reference
+
+Everything below contains exact values, configs, and source file locations needed during implementation.
+
+---
+
+## A1. Brave Browser - Exact Configuration
+
+### GPU Stability Flags (wrap brave binary or use brave-flags.conf)
+```
+--use-gl=angle
+--disable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoEncoder
+```
+
+Environment: `QT_NO_GLIB=1` (prevents Qt6 SIGTRAP crash)
+
+### Extension CRX IDs (install via policy)
+```
+aeblfdkhhhdcdjpifhhbdiojplfjncoa
+cjpalhdlnbpafiamejdnhcphjbkeiagm
+jcokdfogijmigonkhckmhldgofjmfdak
+mmpokgfcmbkfdeibafoafkiijdbfblfg
+mmioliijnhnoblpgimnlajmefafdfilb
+```
+
+### Brave Policies (deployed to /etc/brave/policies/managed/policies.json)
+```json
+{
+  "BrowserSignin": 0,
+  "SyncDisabled": true,
+  "PasswordManagerEnabled": false,
+  "AutofillAddressEnabled": false,
+  "AutofillCreditCardEnabled": false,
+  "DefaultBrowserSettingEnabled": true,
+  "MetricsReportingEnabled": false,
+  "SearchSuggestEnabled": false,
+  "SpellcheckEnabled": true,
+  "SpellcheckLanguage": ["en-US", "en-CA", "fr"],
+  "RestoreOnStartup": 1,
+  "DefaultSearchProviderEnabled": true,
+  "DefaultSearchProviderName": "Google",
+  "DefaultSearchProviderSearchURL": "https://www.google.com/search?q={searchTerms}",
+  "DefaultSearchProviderSuggestURL": "https://www.google.com/complete/search?output=chrome&q={searchTerms}",
+  "DefaultSearchProviderIconURL": "https://www.google.com/favicon.ico",
+  "DefaultSearchProviderKeyword": "google",
+  "BraveRewardsDisabled": true,
+  "BraveTodayDisabled": true,
+  "BraveAdblockEnabled": true
+}
+```
+
+### Default MIME Applications (xdg-mime)
+```
+x-scheme-handler/http=brave-browser.desktop
+x-scheme-handler/https=brave-browser.desktop
+text/html=brave-browser.desktop
+application/xhtml+xml=brave-browser.desktop
+application/pdf=brave-browser.desktop
+```
+
+### Web App Definitions
+
+Standalone (separate Brave profile):
+- Twitch: `brave --app=https://twitch.tv --user-data-dir=~/.local/share/brave-twitch`
+
+Installed apps (via default profile --app-id):
+| App | App ID |
+|-----|--------|
+| Messenger | `bbdeiblfgdokhlblpgeaokenkfknecgl` |
+| ChatGPT | `cadlkienfkclaiaibeoongdcgmdikeeg` |
+| WhatsApp | `hnpfjngllnobngcgfapefoaidbinmjnm` |
+| Perplexity | `kpmdbogdmbfckbgdfdffkleoleokbhod` |
+| Outlook | `eigpmdhekjlgjgcppnanaanbdmnlnagl` |
+
+### Brave Graceful Shutdown Service
+Systemd service that sends SIGTERM to all Brave processes before system shutdown, waits 5s, then SIGKILL. Prevents session corruption.
+
+---
+
+## A2. Bluetooth - Exact Configuration
+
+### Hardware
+- Headphones: Soundcore Life Q30, MAC `E8:EE:CC:46:F1:AC`
+- Adapter: Intel AX211 (requires btusb workaround)
+
+### btusb Module Option - SKIP
+`disable_msft_ext` is not a real btusb parameter (kernel patch was proposed but rejected). The BLE-only connection issue is fixed via `ControllerMode = bredr` in `/etc/bluetooth/main.conf` instead.
+
+### PipeWire/WirePlumber Bluetooth Codecs - DONE
+Deployed to `~/.config/wireplumber/wireplumber.conf.d/51-bluez-config.conf` via `config/wireplumber/51-bluez-config.conf` (WirePlumber 0.5 SPA JSON format).
+
+### Bluetooth Main Config - DONE
+Deployed to `/etc/bluetooth/main.conf` via `config/bluetooth/main.conf`.
+
+### bt-toggle Script - TODO
+Toggles Bluetooth on/off. When enabling, auto-connects Q30 (E8:EE:CC:46:F1:AC). Uses libnotify for status. Exposed as KWin Meta+F11 shortcut via D-Bus to systemd user service.
+
+---
+
+## A3. SSH - Exact Known Hosts
+
+Deploy to `~/.ssh/known_hosts` and/or `/etc/ssh/ssh_known_hosts`:
+
+```
+github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+cmos.home.arpa,192.168.1.2 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICWApzyGnR1dTPKRy2+5pprZa8W1ICPmTN26Yf10kuCH
+misc.home.arpa,192.168.1.5 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKsqrFBWZUo0F2e5U6V/sDE+k5q9VSprdHmCdhnT2bhd
+jimmich.home.arpa,192.168.1.10 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA5Vu33OgWjxAcWrq11UaXIQDNJuCq1psIcNO1v0BOhI
+nixvm.home.arpa,192.168.1.14 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPD9O2Kp035SnwfDKlDicTr6Xf/kUL4L4igoEgL2WrMA
+```
+
+### SSH Server Config (already deployed, for reference)
+- PermitRootLogin: yes (needed for deployment)
+- PasswordAuthentication: false
+- PubkeyAuthentication: true
+- MaxAuthTries: 3
+- LoginGraceTime: 30
+- ClientAliveInterval: 300 (5 min)
+- ClientAliveCountMax: 2
+- AllowUsers: nicholas root
+- WAN (non-192.168.1.0/24): AllowUsers=nobody, no auth methods (effectively blocked)
+
+---
+
+## A4. Sysctl - All Values
+
+### CMOS-specific (host/cmos/default.nix)
+```ini
+# Discord RTC fix on bridge interface
+net.bridge.bridge-nf-call-iptables = 0
+net.bridge.bridge-nf-call-ip6tables = 0
+
+# WebRTC/voice UDP timeouts
+net.netfilter.nf_conntrack_udp_timeout = 60
+net.netfilter.nf_conntrack_udp_timeout_stream = 180
+```
+
+### AI/ML workload tuning (ai/core.nix)
+```ini
+vm.swappiness = 10
+vm.dirty_ratio = 15
+vm.dirty_background_ratio = 5
+net.core.rmem_default = 262144
+net.core.rmem_max = 16777216
+net.core.wmem_default = 262144
+net.core.wmem_max = 16777216
+net.ipv4.tcp_rmem = 4096 65536 16777216
+net.ipv4.tcp_wmem = 4096 65536 16777216
+```
+
+### Kernel (core/kernel-tweaks.nix)
+```ini
+nmi_watchdog = 0
+```
+
+### Already deployed (config/sysctl/99-quiet-console.conf)
+```ini
+kernel.printk = 3 3 3 3
+```
+
+---
+
+## A5. Secrets Inventory (CMOS-only)
+
+All secrets were managed by agenix (age-encrypted, decrypted at boot). For Arch, these need a deployment approach (age + YubiKey decrypt script, or manual placement).
+
+### Critical (Phase 1)
+| Secret | Mode | Owner | Used By |
+|--------|------|-------|---------|
+| `borg-backup-passphrase` | 0600 | root | Borg backup service |
+| `cifs-username` | 0600 | root | NAS mount (DONE - /etc/cifs/credentials) |
+| `cifs-password` | 0600 | root | NAS mount (DONE - /etc/cifs/credentials) |
+| `github-pat` | 0640 | root:github-access | Git commands, issue monitors |
+
+### Discord Webhooks
+| Secret | Mode | Owner | Used By |
+|--------|------|-------|---------|
+| `discord-webhook-url` | 0600 | nicholas | Upstream monitors, failure notify |
+| `discord-webhook-rebuilds` | 0600 | root | Update notifications |
+| `curseforge-discord-webhook` | 0600 | nicholas | CurseForge comment notifier |
+
+### Firebase/FCM
+| Secret | Mode | Owner | Used By |
+|--------|------|-------|---------|
+| `firebase-service-account` | 0640 | root:fcm-access | Timer CLI, KDE timer notifications |
+| `fcm-device-phone-token` | 0640 | root:fcm-access | Timer CLI (push to phone) |
+
+### Application Secrets
+| Secret | Mode | Owner | Used By |
+|--------|------|-------|---------|
+| `investment-tracker-password` | 0400 | investment-tracker | Investment tracker auth |
+| `google-tasks-credentials` | 0400 | nicholas | Google Tasks TUI |
+| `twitch-access-token` | 0600 | nicholas | Twitch TUI (format: oauth:xxx) |
+| `cloudflare-credentials` | 0640 | root:cloudflare-access | cf-delete, cf-list scripts |
+| `nvd-api-key` | 0640 | root:users | Vulnerability scanning |
+| `searxng-secret-key` | 0600 | root | SearXNG service |
+
+### LibreChat (Docker)
+| Secret | Mode | Owner | Used By |
+|--------|------|-------|---------|
+| `librechat-encryption-key` | 0600 | librechat | LibreChat encryption |
+| `librechat-jwt-secret` | 0600 | librechat | JWT signing |
+| `librechat-jwt-refresh-secret` | 0600 | librechat | JWT refresh |
+| `librechat-postgres-password` | 0600 | librechat | Postgres auth |
+| `librechat-mongo-password` | 0600 | librechat | MongoDB auth |
+
+### SSH Keys (per-host, from agenix)
+| Secret | Path | Note |
+|--------|------|------|
+| `cmos-nicholas-private-key` | ~/.ssh/id_ed25519 | DONE (restored from NAS via age+YubiKey) |
+| `cmos-root-private-key` | /root/.ssh/id_ed25519 | Needs deployment for root SSH |
+
+---
+
+## A6. Application Source Code Locations
+
+All app source code lives in `~/nixos/apps/`. These directories need to be copied or referenced when setting up services.
+
+| App | Location | Language | Framework | Port | Database |
+|-----|----------|----------|-----------|------|----------|
+| cmos-remote | `~/nixos/apps/cmos-remote/server/` | Python | FastAPI | 8201 | None |
+| diet-db | `~/nixos/apps/diet-db/` | Python | FastAPI (MCP) | 8112 | SQLite: ~/.local/share/diet-db/diet.db |
+| google-tasks-tui | `~/nixos/apps/google-tasks-tui/` | Python | Rich CLI | N/A | None (Google API) |
+| investment-tracker | `~/nixos/apps/investment-tracker/` | Python+React | FastAPI+Vite | 8003 | SQLite: /var/lib/investment-tracker/data.db |
+| kde-timer-notifications | `~/nixos/apps/kde-timer-notifications/` | Python | Firebase+D-Bus | N/A | Firebase RTDB |
+| med-tracker | `~/nixos/apps/med-tracker/` | Python | FastAPI | 8110 | SQLite: /var/lib/med-tracker/meds.db |
+| system-dashboard | `~/nixos/apps/system-dashboard/` | Python+JS | FastAPI+WebSocket | 8200 | None (reads systemd) |
+| timer-cli | `~/nixos/apps/timer-cli/` | Python | Google Cloud Tasks | N/A | Cloud Tasks queue |
+| timer-cloud-function | `~/nixos/apps/timer-cloud-function/` | Python | Cloud Functions | N/A | Firebase RTDB |
+| fcm-notifier | `~/nixos/apps/fcm-notifier/` | Kotlin | Jetpack Compose | N/A | Android app |
+
+Note: `nixos-chat` is NixOS-specific (SKIP). `firebase-test` is a static HTML test page.
+
+---
+
+## A7. Scripts Inventory (~/nixos/scripts/)
+
+### Bash Scripts
+
+| Script | Purpose | Dependencies | Used By |
+|--------|---------|-------------|---------|
+| `claude-nas-backup.sh` | Backs up ~/.claude settings/skills/memory to /mnt/syno/claude-backup | rsync | Manual / alias `claude-nas` |
+| `nuke-secret.sh` | Remove secrets from git history with backup branch | git, git-filter-repo | Manual CLI `nuke-secret` |
+| `pdf-order.sh` | Organize PDFs into /mnt/syno/scans/ using Ollama vision + ocrmypdf | curl, imagemagick, ocrmypdf, ollama | Manual CLI `pdf-order` |
+| `scan2pdf.sh` | Scan to searchable PDF with AI-powered filing | scanimage (sudo), tesseract, imagemagick, ollama or Claude API | Manual CLI `scan2pdf` |
+| `scan2png.sh` | Scan to PNG with AI-powered filing | scanimage (sudo), imagemagick, ollama | Manual CLI `scan2png` |
+| `test-rocm.sh` | Validate ROCm/GPU setup | rocminfo, radeontop, lspci | Manual diagnostic |
+| `traefik-audit.sh` | Security audit of Traefik logs on misc | ssh (misc.home.arpa), journalctl | Manual CLI `traefik-audit` |
+| `video.sh` | Discord video converter (two-pass x264, 10MB limit) | ffprobe, ffmpeg, wl-copy | Manual CLI `video` |
+| `create-jellyfin-users-secret.sh` | Generate Jellyfin user secrets | python3, agenix | One-time setup (jimmich) |
+| `migrate-media-config.sh` | Migrate Radarr/Sonarr databases | sqlite3, systemctl | One-time migration |
+| `rekey-nixvm.sh` | Re-encrypt agenix secrets for nixvm | age, agenix | One-time NixOS maintenance |
+
+### Python Scripts
+
+| Script | Purpose | Dependencies | Used By |
+|--------|---------|-------------|---------|
+| `backup-nextcloud.py` | Backup Nextcloud data to Google Drive | rclone, tar, zstd | Systemd timer (nightly 4 AM) |
+| `backup-secrets.py` | Backup agenix secrets to 1Password/GDrive/NAS | rclone, age, age-plugin-yubikey, op (1Password CLI) | Systemd timer |
+| `check-keycloak-security.py` | Monitor Keycloak CVEs | ssh, gh, Claude Agent SDK | Systemd timer + Discord |
+| `check-mesa-dx11-fix.py` | Monitor Mesa for WoW DX11 fix on RX 6800 XT | Claude Agent SDK, urllib | Systemd timer + Discord |
+| `check-traefik-security.py` | Monitor Traefik CVEs | ssh, gh, Claude Agent SDK | Systemd timer + Discord |
+| `check-upstream-issues.py` | Track GitHub issues for fix signals | gh CLI, Claude Agent SDK | Systemd timer + Discord |
+| `curseforge-comments.py` | Scrape CurseForge addon comments | selenium, firefox, geckodriver | Systemd timer (08:00, 19:00) |
+| `fcm-test.py` | Send test FCM notifications | firebase-admin | Manual CLI `fcm-test` |
+| `litra-control.py` | TUI for Logitech Litra Glow | textual, rich, litra CLI | Manual CLI |
+| `nix-pentest.py` | Pentest suite for bedrosn.com | nmap, nuclei, rustscan, lynis | Manual CLI |
+| `portfolio-gate.py` | TOTP-gated portfolio HTTP server | stdlib (http.server, hmac) | Systemd service (misc) |
+| `scan-claude-file.py` | AI-powered PDF filing using Claude | Claude Agent SDK | Called by scan2pdf.sh --claude |
+| `scan-smart-file.py` | AI-powered PDF filing using Ollama | ollama (localhost:11434) | Called by scan2pdf.sh, scan2png.sh |
+| `security_monitor_base.py` | Shared library for security monitors | Claude Agent SDK, gh, urllib | Imported by check-*.py scripts |
+| `generate-jellyfin-users.py` | Generate Jellyfin user configs | stdlib | Called by create-jellyfin-users-secret.sh |
+| `backup-*.py` (other) | Various backup utilities | rclone, rsync | Systemd timers |
+
+### Scripts Relevant to Arch Migration (need to copy/adapt)
+- `claude-nas-backup.sh` - works as-is
+- `nuke-secret.sh` - works as-is
+- `pdf-order.sh` - works once Ollama is running
+- `scan2pdf.sh`, `scan2png.sh` - need scanimage (sane), tesseract, imagemagick
+- `scan-smart-file.py`, `scan-claude-file.py` - called by scan scripts
+- `video.sh` - works once ffmpeg installed
+- `traefik-audit.sh` - works as-is (SSHs to misc)
+- `backup-nextcloud.py` - works once rclone configured
+- `backup-secrets.py` - needs adaptation (no more agenix)
+- `check-upstream-issues.py` - works with Claude Agent SDK + github-pat
+- `curseforge-comments.py` - needs selenium, firefox, geckodriver
+- `litra-control.py` - needs textual, litra-rs
+- `security_monitor_base.py` - shared library, copy alongside check-*.py
+- `fcm-test.py` - works with firebase-admin
+
+### Scripts NOT Relevant to Arch (NixOS/server-specific)
+- `create-jellyfin-users-secret.sh` - jimmich host
+- `generate-jellyfin-users.py` - jimmich host
+- `migrate-media-config.sh` - one-time, already done
+- `rekey-nixvm.sh` - NixOS agenix specific
+- `portfolio-gate.py` - runs on misc host
+- `check-keycloak-security.py` - monitors misc service
+- `check-traefik-security.py` - monitors misc service
+- `check-mesa-dx11-fix.py` - can keep if WoW DX11 bug still relevant
+- `nix-pentest.py` - references NixOS infra, needs adaptation
+
+---
+
+## A8. Tailscale VPN
+
+NixOS had: `services.tailscale.enable = true` + `tailscale` package.
+
+Arch setup:
+1. Install `tailscale` (official repos)
+2. `systemctl enable --now tailscaled`
+3. `tailscale up` (authenticate via browser)
+4. Firewall: Tailscale manages its own interface (tailscale0), no manual rules needed
+
+---
+
+## A9. KDE Google Drive Integration
+
+NixOS had a custom signond + signon-plugin-oauth2 + signon-ui stack for KDE Online Accounts to access Google Drive in Dolphin via kio-gdrive.
+
+Arch packages needed:
+- `kaccounts-integration` (official)
+- `kaccounts-providers` (official)
+- `kio-gdrive` (official)
+- `signond` (AUR: `signon-daemon`)
+- `signon-plugin-oauth2` (AUR: `signon-plugin-oauth2`)
+- `signon-ui` (AUR: `signon-ui` or `signon-ui-git`)
+
+This was complex on NixOS (custom package builds, D-Bus service wrappers). On Arch it should be simpler - install the AUR packages and KDE Online Accounts should work. May need to add Google account via System Settings > Online Accounts.
+
+---
+
+## A10. Ollama - Full Service Configuration
+
+### Systemd Environment Variables
+```ini
+OLLAMA_HOST=0.0.0.0:11434
+HSA_OVERRIDE_GFX_VERSION=10.3.0
+OLLAMA_GPU_MEMORY=12GB
+OLLAMA_MAX_LOADED_MODELS=2
+OLLAMA_KEEP_ALIVE=-1
+OLLAMA_LOW_VRAM=1
+```
+
+### Systemd Resource Limits (override)
+```ini
+[Service]
+MemoryMax=12G
+MemoryHigh=10G
+CPUQuota=400%
+Nice=10
+```
+
+### Models to Preload
+```
+qwen2.5-coder:7b
+qwen3.5:4b
+qwen3-embedding:0.6b
+qwen2.5:14b
+llava:7b
+llama3.2-vision:11b
+qwen2.5vl:7b
+llama3.1:8b
+```
+
+### Custom Model: qwen2.5-coder:tools
+Modelfile:
+```
+FROM qwen2.5-coder:7b-instruct
+PARAMETER temperature 0.15
+PARAMETER num_ctx 32768
+```
+
+### GPU Memory Monitor Service
+- Runs continuously
+- At 85% VRAM: unloads least-recently-used models
+- At 95% VRAM: restarts Ollama service
+- Commands: `gpu-status`, `ollama-unload`, `ollama-safe-load`
+
+### Ollama Cleanup Timer
+- Every 15 minutes
+- Unloads idle models when VRAM > 70%
+
+---
+
+## A11. Firewall - Complete Port Map
+
+### Base (all hosts on NixOS, apply to Arch)
+| Port | Proto | Service |
+|------|-------|---------|
+| 22 | TCP | SSH |
+| 139 | TCP | SMB/CIFS |
+| 445 | TCP | SMB/CIFS |
+| 5353 | UDP | mDNS |
+| 5355 | UDP | LLMNR |
+
+### CMOS Desktop
+| Port | Proto | Service |
+|------|-------|---------|
+| 8000 | TCP | Keeper app API |
+| 8001 | TCP | radeontop-web |
+| 8003 | TCP | Investment tracker |
+| 8084 | TCP | Claude Code WebUI |
+| 8112 | TCP | Diet MCP server |
+| 8200 | TCP | System dashboard |
+| 8201 | TCP | cmos-remote |
+| 9090 | TCP | Cockpit |
+| 11434 | TCP | Ollama |
+
+### Gaming/Streaming
+| Port | Proto | Service |
+|------|-------|---------|
+| 27036 | TCP | Steam Remote Play |
+| 47984 | TCP | Sunshine HTTPS |
+| 47989 | TCP | Sunshine HTTP |
+| 47990 | TCP | Sunshine Web |
+| 48010 | TCP | Sunshine RTSP |
+| 47998-48000 | UDP | Sunshine media |
+| 8000-8010 | UDP | Sunshine audio |
+
+### AI Stack
+| Port | Proto | Service |
+|------|-------|---------|
+| 8090 | TCP | LibreChat |
+| 8098 | TCP | LibreChat MCP |
+| 8099 | TCP | LibreChat RAG API |
+| 8280 | TCP | SearXNG |
+| 9222 | TCP | Brave CDP (localhost only, ChatGPT Quick) |
+
+---
+
+## A12. Printing & Scanning - Exact Setup
+
+### Printer: Brother DCP-7060D
+- USB (default): auto-detected by CUPS
+- Network via router: `socket://192.168.1.1:9100`
+- Drivers: `brlaser` (official), `brgenml1cupswrapper`, `brgenml1lpr` (AUR: `brother-dcp7060d`)
+
+### Scanner: Brother DCP-7060D
+- SANE backend: `brscan4` (AUR: `brscan4`)
+- Requires: nicholas in `scanner` and `lp` groups
+- scanimage requires sudo (Brother driver limitation)
+- Sudo NOPASSWD rule: `nicholas ALL=(ALL) NOPASSWD: /usr/bin/scanimage`
+
+### CUPS Setup
+```bash
+# Install
+pacman -S cups
+
+# Enable
+systemctl enable --now cups
+
+# Add printer (USB)
+# Auto-detected, or manually via CUPS web UI at localhost:631
+
+# Add printer (network)
+lpadmin -p Brother-DCP7060D -E -v socket://192.168.1.1:9100 -m everywhere
+```
+
+---
+
+## A13. Litra Glow - Udev Rules
+
+Deploy to `/etc/udev/rules.d/99-litra.rules`:
+```
+# Logitech Litra Glow
+SUBSYSTEM=="usb", ATTR{idVendor}=="046d", ATTR{idProduct}=="c900", MODE="0660", GROUP="video"
+# Logitech Litra Beam
+SUBSYSTEM=="usb", ATTR{idVendor}=="046d", ATTR{idProduct}=="c901", MODE="0660", GROUP="video"
+SUBSYSTEM=="usb", ATTR{idVendor}=="046d", ATTR{idProduct}=="b901", MODE="0660", GROUP="video"
+SUBSYSTEM=="usb", ATTR{idVendor}=="046d", ATTR{idProduct}=="c903", MODE="0660", GROUP="video"
+```
+
+Install `litra` from cargo: `cargo install litra` (from timrogers/litra-rs v2.4.0)
+
+---
+
+## A14. Kitty Terminal - Config
+
+Deploy to `~/.config/kitty/kitty.conf`:
+```
+font_family JetBrains Mono
+font_size 11
+background_opacity 0.95
+background_blur 20
+tab_bar_style powerline
+tab_bar_min_tabs 1
+tab_bar_edge top
+shell_integration enabled
+
+# Catppuccin Mocha colors
+foreground #CDD6F4
+background #1E1E2E
+selection_foreground #1E1E2E
+selection_background #F5E0DC
+cursor #F5E0DC
+cursor_text_color #1E1E2E
+url_color #F5E0DC
+
+# Normal colors
+color0 #45475A
+color1 #F38BA8
+color2 #A6E3A1
+color3 #F9E2AF
+color4 #89B4FA
+color5 #F5C2E7
+color6 #94E2D5
+color7 #BAC2DE
+
+# Bright colors
+color8 #585B70
+color9 #F38BA8
+color10 #A6E3A1
+color11 #F9E2AF
+color12 #89B4FA
+color13 #F5C2E7
+color14 #94E2D5
+color15 #A6ADC8
+```
+
+---
+
+## A15. Webcam C920 - Systemd Service
+
+Oneshot service to configure Logitech C920 on boot:
+```ini
+[Unit]
+Description=Configure Logitech C920 Webcam
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/v4l2-ctl -d /dev/video0 --set-fmt-video=width=1920,height=1080,pixelformat=MJPG
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+```
+
+---
+
+## A16. Mouse Remap (Razer Viper Mini) - Details
+
+### Kernel Module
+Load `uinput`: add to `/etc/modules-load.d/uinput.conf`
+
+### Python Script
+Uses `evdev` library. Reads from `/dev/input/by-id/usb-Razer_Razer_Viper_Mini-event-mouse`.
+- BTN_EXTRA (code 276) tap (< 0.2s): sends original BTN_EXTRA
+- BTN_EXTRA (code 276) hold (>= 0.2s): acts as Left Control modifier
+
+### Systemd Service
+```ini
+[Unit]
+Description=Mouse tap-hold remap for Razer Viper Mini
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /path/to/mouse-remap.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+---
+
+## A17. USB Hub Bluetooth Toggle - Details
+
+### Hardware
+- VIA Labs USB 2.0 Hub: vendor `2109`, product `2817`
+- Q30 MAC: `E8:EE:CC:46:F1:AC`
+
+### Udev Rules (deploy to /etc/udev/rules.d/99-usb-hub-bt.rules)
+```
+# USB hub removed - disable bluetooth
+ACTION=="remove", SUBSYSTEM=="usb", ATTR{idVendor}=="2109", ATTR{idProduct}=="2817", RUN+="/usr/bin/systemctl start --no-block usb-hub-bt-off.service"
+
+# USB hub added - enable bluetooth
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="2109", ATTR{idProduct}=="2817", RUN+="/usr/bin/systemctl start --no-block usb-hub-bt-on.service"
+```
+
+### Two Systemd Services
+- `usb-hub-bt-off`: Turns BT off, idempotent
+- `usb-hub-bt-on`: Turns BT on, auto-connects Q30, idempotent
+
+---
+
+## A18. KWin Script Pattern
+
+All three shortcuts (Meta+F10/F11/F12) follow the same pattern:
+
+1. Create KWin script directory: `~/.local/share/kwin/scripts/<name>/`
+2. Write `metadata.json` (KPackageStructure format for Plasma 6)
+3. Write `main.js` that registers a shortcut calling D-Bus to start a systemd user service
+4. Enable the KWin script via `kwriteconfig6`
+
+Example main.js:
+```javascript
+registerShortcut("Toggle Something", "Toggle Something", "Meta+F11", function() {
+    callDBus("org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+             "org.freedesktop.systemd1.Manager", "StartUnit",
+             "my-service.service", "replace");
+});
+```
+
+---
+
+## A19. Cockpit - Exact Configuration
+
+Deploy to `/etc/cockpit/cockpit.conf`:
+```ini
+[WebService]
+LoginTitle = cmos
+AllowUnencrypted = true
+Origins = https://localhost https://cmos.home.arpa https://cmos-pit.bedrosn.com
+IdleTimeout = 240
+
+[Session]
+Banner = /etc/cockpit/issue
+```
+
+Port 9090. Firewall rule needed. Package: `cockpit` (official repos).
+
+---
+
+## A20. Fail2ban - Exact Jail Configuration
+
+Deploy to `/etc/fail2ban/jail.local`:
+```ini
+[DEFAULT]
+bantime = 1h
+backend = systemd
+ignoreip = 127.0.0.0/8 ::1 192.168.1.0/24
+
+[sshd]
+enabled = true
+maxretry = 5
+findtime = 10m
+bantime = 1h
+
+[sshd-flood]
+enabled = true
+filter = sshd
+maxretry = 10
+findtime = 1m
+bantime = 3h
+```
+
+Helper scripts:
+- `fail2ban-ssh-status`: show banned IPs and jail status
+- `fail2ban-ssh-unban <IP>`: unban specific IP
+
+---
+
+## A21. Borg Backup - Exact Configuration
+
+### Backup Paths
+```
+/etc
+/home/nicholas/.bash_history
+/home/nicholas/.config  (KDE configs)
+/home/nicholas/.ssh
+/home/nicholas/.claude
+/home/nicholas/.local/share/diet-db
+/home/nicholas/Desktop
+/home/nicholas/Documents
+/home/nicholas/git
+/home/nicholas/Pictures
+/home/nicholas/Videos
+/root/.gnupg
+/root/.ssh
+```
+
+### Exclusion Patterns
+```
+*/node_modules
+*/.venv
+*/__pycache__
+*/build
+*/dist
+*/target
+*/.next
+*/venv
+*/repos     (nixos/repos)
+*/reference (git/reference)
+```
+
+### Local Backup
+- Repo: `/mnt/data/backups/cmos/borg`
+- Encryption: `repokey-blake2`
+- Compression: `zstd,3`
+- Retention: 14 daily
+- Timer: daily at 05:00 with 5min random delay
+
+### Remote Backup
+- Repo: `nicholas@offsite.bedrosn.com:/mnt/data/cmos/borg`
+- Same encryption/compression/retention
+- Triggers after local backup succeeds
+
+### Manual Commands
+- `backup-cmos-manual-borg` - on-demand timestamped archive
+- `backup-cmos-manual-borg-dry` - dry run
+
+---
+
+## A22. Samba - Exact Configuration
+
+### smb.conf (relevant sections)
+```ini
+[global]
+server min protocol = SMB2
+server max protocol = SMB3
+disable netbios = yes
+dns proxy = no
+map to guest = never
+encrypt passwords = yes
+security = user
+
+[cmos-home]
+path = /home/nicholas
+valid users = nicholas
+read only = no
+browseable = yes
+```
+
+### User Setup
+```bash
+sudo smbpasswd -a nicholas
+```
+
+Packages: `samba` (official). Enable: `systemctl enable --now smb nmb wsdd2`
+
+---
+
+## A23. Docker - Exact Configuration
+
+### daemon.json (deploy to /etc/docker/daemon.json)
+```json
+{
+  "storage-driver": "overlay2",
+  "experimental": true
+}
+```
+
+### Setup
+```bash
+# Packages: docker, docker-compose, docker-buildx
+systemctl enable --now docker
+usermod -aG docker nicholas
+mkdir -p /opt/docker-compose
+chown nicholas:docker /opt/docker-compose
+chmod 755 /opt/docker-compose
+```
+
+---
+
+## A24. Suricata Management CLI
+
+Command available on cmos for managing Clear NDR suppression rules on misc host:
+- `suricata --suppress-add <SIG_ID>` - Add suppression rule
+- `suricata --suppress-remove <SIG_ID>` - Remove rule
+- `suricata --suppress-list` - List all rules
+- `suricata --suppress-edit` - Edit in $EDITOR
+
+Edits `/etc/nixos/modules/services/clear-ndr.nix` on misc via SSH, then prompts to rebuild. May need adaptation for non-NixOS misc host.
+
+---
+
+## A25. Trufflehog - Wrapper Commands
+
+### thog (git scan)
+```bash
+trufflehog git file://. --only-verified --exclude-paths=/path/to/trufflehog-exclude.txt
+```
+
+### thog-all (filesystem scan)
+```bash
+trufflehog filesystem . --only-verified --exclude-paths=/path/to/trufflehog-exclude.txt
+```
+
+Install: `trufflehog` (AUR or download binary from GitHub). Exclusion file should filter: `.age` files, test fixtures, known false positives.
+
+Also symlink exclusion config to `~/.truffleignore`.
+
+---
+
+## A26. Konsole Root Profile
+
+Deploy to `~/.local/share/konsole/Root.profile`:
+```ini
+[Appearance]
+ColorScheme=Breeze
+Font=Monospace,11
+
+[General]
+Command=sudo -i
+Name=Root
+Parent=FALLBACK/
+
+[Scrolling]
+HistorySize=1000
+
+[Terminal Features]
+UrlHintsModifiers=0
+```
+
+Deploy to `~/.config/konsolerc`:
+```ini
+[Desktop Entry]
+DefaultProfile=Root.profile
+```
+
+---
+
+## A27. Konsole cpv Utility
+
+`cpv` command: copies visible text from active Konsole tab to clipboard via D-Bus.
+```bash
+cpv() {
+    qdbus6 org.kde.konsole-$KONSOLE_DBUS_SESSION \
+        /Sessions/$(qdbus6 org.kde.konsole-$KONSOLE_DBUS_SESSION /Windows/1 currentSession) \
+        org.kde.konsole.Session.visibleText | wl-copy
+}
+```
