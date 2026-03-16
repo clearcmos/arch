@@ -185,27 +185,27 @@ info "  WiFi disabled."
 # --- KDE Lock Screen (disabled) ---
 
 info "Disabling KDE lock screen..."
-kwriteconfig6 --file kscreenlockerrc --group Daemon --key Autolock false
-kwriteconfig6 --file kscreenlockerrc --group Daemon --key LockOnResume false
+kwriteconfig6 --file kscreenlockerrc --group Daemon --key Autolock false || true
+kwriteconfig6 --file kscreenlockerrc --group Daemon --key LockOnResume false || true
 info "  lock screen disabled."
 
 # --- KDE Hot Corners (disabled) ---
 
 info "Disabling KDE hot corners..."
-kwriteconfig6 --file kwinrc --group Effect-overview --key BorderActivate 9
-kwriteconfig6 --file kwinrc --group ElectricBorders --key TopLeft None
-kwriteconfig6 --file kwinrc --group ElectricBorders --key TopRight None
-kwriteconfig6 --file kwinrc --group ElectricBorders --key BottomLeft None
-kwriteconfig6 --file kwinrc --group ElectricBorders --key BottomRight None
+kwriteconfig6 --file kwinrc --group Effect-overview --key BorderActivate 9 || true
+kwriteconfig6 --file kwinrc --group ElectricBorders --key TopLeft None || true
+kwriteconfig6 --file kwinrc --group ElectricBorders --key TopRight None || true
+kwriteconfig6 --file kwinrc --group ElectricBorders --key BottomLeft None || true
+kwriteconfig6 --file kwinrc --group ElectricBorders --key BottomRight None || true
 info "  hot corners disabled."
-kwriteconfig6 --file kglobalshortcutsrc --group kwin --key Overview "none,Meta+W,Toggle Overview"
+kwriteconfig6 --file kglobalshortcutsrc --group kwin --key Overview "none,Meta+W,Toggle Overview" || true
 info "  Overview shortcut disabled (takes effect after re-login)."
 
 # --- KDE Dark Theme ---
 
 info "Applying KDE dark theme..."
-kwriteconfig6 --file kdeglobals --group General --key ColorScheme BreezeDark
-kwriteconfig6 --file kdeglobals --group General --key ColorSchemeHash ""
+kwriteconfig6 --file kdeglobals --group General --key ColorScheme BreezeDark || true
+kwriteconfig6 --file kdeglobals --group General --key ColorSchemeHash "" || true
 info "  set BreezeDark color scheme (applies on first KDE login)."
 
 # --- Mount Points (fstab) ---
