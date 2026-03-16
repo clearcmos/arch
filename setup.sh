@@ -81,17 +81,17 @@ read_packages "$SCRIPT_DIR/packages/aur.txt" \
 
 # --- Nix (Determinate Systems installer) ---
 
-if ! command -v nix &>/dev/null; then
+if [[ -f /nix/receipt.json ]]; then
+    info "Nix already installed, skipping."
+else
     info "Installing Nix..."
     curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix \
         | sh -s -- install --no-confirm
-else
-    info "Nix already installed, skipping."
 fi
 
 # --- Claude Code ---
 
-if ! command -v claude &>/dev/null; then
+if [[ -f "$HOME/.local/bin/claude" ]]; then
     info "Installing Claude Code..."
     curl -fsSL https://claude.ai/install.sh | bash
     # Ensure ~/.local/bin is in PATH
