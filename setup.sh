@@ -329,8 +329,22 @@ if command -v gh &>/dev/null; then
     if gh auth status &>/dev/null 2>&1; then
         info "  gh already authenticated."
     else
-        warn "  gh not authenticated. Once 1Password and Brave are set up, run:"
-        warn "    gh auth login --hostname github.com --git-protocol ssh --web --skip-ssh-key"
+        echo ""
+        echo "  GitHub CLI is not authenticated."
+        echo "  This will open a browser — sign in with your YubiKey passkey."
+        read -r -p "  Set up GitHub CLI now? [Y/n] " gh_auth
+        if [[ ! "$gh_auth" =~ ^[Nn]$ ]]; then
+            gh auth login --hostname github.com --git-protocol ssh --web --skip-ssh-key || true
+            if gh auth status &>/dev/null 2>&1; then
+                info "  gh authenticated successfully."
+            else
+                warn "  gh auth failed. Run manually later:"
+                warn "    gh auth login --hostname github.com --git-protocol ssh --web --skip-ssh-key"
+            fi
+        else
+            warn "  skipping gh auth. Run later:"
+            warn "    gh auth login --hostname github.com --git-protocol ssh --web --skip-ssh-key"
+        fi
     fi
 else
     warn "  gh not found, skipping GitHub CLI auth."
