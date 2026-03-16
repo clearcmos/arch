@@ -450,9 +450,19 @@ else
     read -r -p "Pair now? Put headphones in pairing mode first. [y/N] " pair_bt
     if [[ "$pair_bt" =~ ^[Yy]$ ]]; then
         bluetoothctl power on &>/dev/null
-        info "  scanning for device (up to 15s)..."
-        bluetoothctl --timeout 15 scan on &>/dev/null
-        if bluetoothctl devices 2>/dev/null | grep -q "$Q30_MAC"; then
+        info "  scanning for device (up to 30s)..."
+        bluetoothctl --timeout 30 scan on &>/dev/null &
+        SCAN_PID=$!
+        BT_FOUND=false
+        for i in $(seq 1 30); do
+            if bluetoothctl devices 2>/dev/null | grep -q "$Q30_MAC"; then
+                BT_FOUND=true
+                break
+            fi
+            sleep 1
+        done
+        kill "$SCAN_PID" 2>/dev/null; wait "$SCAN_PID" 2>/dev/null || true
+        if $BT_FOUND; then
             bluetoothctl pair "$Q30_MAC" && info "  paired Soundcore Life Q30."
             bluetoothctl trust "$Q30_MAC" && info "  trusted Soundcore Life Q30."
             bluetoothctl connect "$Q30_MAC" && info "  connected Soundcore Life Q30."
