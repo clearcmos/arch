@@ -6,8 +6,5 @@ sshd
 pcscd
 
 # User services (enabled via systemctl --user enable)
-# PipeWire is socket-activated by default on modern Arch,
-# but we enable explicitly for reliability.
-user:pipewire
-user:pipewire-pulse
-user:wireplumber
+# PipeWire is socket-activated by default on modern Arch via presets.
+# No need to enable explicitly.
