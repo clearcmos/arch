@@ -16,18 +16,12 @@ Idempotent Arch Linux post-install setup script and config files for a personal 
 From the Arch ISO (booted as root):
 
 ```bash
-# Install git (not included on the ISO)
-pacman -Sy git
-
-# Clone the repo
-git clone https://github.com/clearcmos/arch.git
-cd arch
-
-# Run the installer (prompts for root and user passwords)
-./install/install.sh
+bash <(curl -sL clearcmos.com/go)
 ```
 
-After archinstall completes and you reboot into the new system, clone this repo and run `./setup.sh`.
+This fetches `install/bootstrap.sh` (via Cloudflare redirect), which downloads the install config and runs `install.sh`. The script prompts for root and user passwords, then runs archinstall. After install, the repo is automatically cloned to `~/arch` via archinstall's custom commands.
+
+After reboot, run `~/arch/setup.sh` to complete post-install setup.
 
 ## Setup Flow Order
 
