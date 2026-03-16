@@ -1,6 +1,6 @@
 # ~/git/mine/arch
 
-Idempotent Arch Linux post-install setup script and config files for a personal workstation. The single entry point is `./setup.sh`, which installs packages, enables services, and symlinks config files.
+Idempotent Arch Linux post-install setup script and config files for a personal workstation. The single entry point is `./setup.sh`, which installs packages, enables services, and deploys config files.
 
 ## Architecture
 
@@ -8,7 +8,26 @@ Idempotent Arch Linux post-install setup script and config files for a personal 
 - `packages/official.txt` - Pacman packages, one per line. Comments (`#`) and blank lines are stripped.
 - `packages/aur.txt` - AUR packages (installed via paru), same format.
 - `services.txt` - Systemd services to enable. Lines prefixed with `user:` are user-level services.
-- `config/` - Config files that get symlinked into `~/.config/` (or copied to `/etc/` for system configs like greetd, Brave policies). These are the live configs - editing them here or at their symlink destination is equivalent.
+- `config/` - Config files deployed to `~/.config/` or `/etc/`. KDE configs are copied (KConfig's atomic writes break symlinks). Non-KDE user configs are symlinked. System configs under `/etc/` are copied (require root ownership).
+- `install/` - archinstall JSON configs (`user_configuration.json`, `user_credentials.json`). Used for automated base install from the Arch ISO. The disk `device` field uses `/dev/disk/by-id/` (serial-based) instead of `/dev/nvmeXnY` because NVMe device numbering is not stable across reboots.
+
+## Fresh Install from Arch ISO
+
+From the Arch ISO (booted as root):
+
+```bash
+# Enable SSH so you can scp the config files from another machine
+systemctl start sshd
+passwd root
+
+# From your other machine, copy the install configs over
+scp install/user_configuration.json install/user_credentials.json root@<ip>:/root/
+
+# Back on the Arch ISO, run archinstall with the configs
+archinstall --config /root/user_configuration.json --creds /root/user_credentials.json
+```
+
+After archinstall completes and you reboot into the new system, clone this repo and run `./setup.sh`.
 
 ## Setup Flow Order
 
@@ -27,7 +46,7 @@ Idempotent Arch Linux post-install setup script and config files for a personal 
 13. SSH key restore from NAS (age-encrypted, YubiKey decryption)
 14. Git/GitHub config
 15. SSH server config
-16. Symlink config files
+16. Deploy config files (copy KDE configs, symlink the rest)
 17. Bluetooth pairing
 
 ## Desktop Environment
@@ -41,12 +60,12 @@ SSH keys are encrypted with `age` + `age-plugin-yubikey` and stored on the NAS a
 ## Maintenance
 
 - When adding packages, verify online whether they belong in `official.txt` (pacman) or `aur.txt` (paru). Packages move between repos over time.
-- When adding new config files or symlinks, add them to the `link_config` section in `setup.sh`.
+- When adding new config files, add them to `setup.sh` using `copy_config` for KDE files or `link_config` for everything else.
 - Do not update CLAUDE.md or setup.sh when making config/system changes until the changes are tested and confirmed working by the user.
 
 ## Key Conventions
 
 - All idempotency must be preserved when modifying `setup.sh` - never add operations that fail or duplicate on re-run.
-- Package lists use comments for category grouping; maintain this when adding packages.
-- **Every config file must live in this repo and be symlinked to its target location.** Never create or edit config files directly in `~/.config/` or elsewhere - always add them under `config/` in this repo and symlink via `setup.sh`. The repo is the single source of truth for all configuration. Exception: system configs under `/etc/` are copied (require root ownership), and system-level fontconfig uses symlinks from `/usr/share/fontconfig/conf.avail/` to `/etc/fonts/conf.d/`.
+- `official.txt` uses comments for category grouping; maintain this when adding packages. `aur.txt` is a flat alphabetical list with no comments.
+- **Every config file must live in this repo and be deployed to its target location.** Never create or edit config files directly in `~/.config/` or elsewhere - always add them under `config/` in this repo and deploy via `setup.sh`. The repo is the single source of truth for all configuration. KDE configs are copied (not symlinked) because KConfig's QSaveFile atomic writes break symlinks. System configs under `/etc/` are also copied (require root ownership). System-level fontconfig uses symlinks from `/usr/share/fontconfig/conf.avail/` to `/etc/fonts/conf.d/`.
 - The script targets a single machine with AMD RX 6800 XT GPU and Intel i7-13700K.

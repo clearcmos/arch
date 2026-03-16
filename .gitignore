@@ -6,6 +6,7 @@
 *.secret
 credentials*
 secrets*
+install/user_credentials.json
 
 # Editor
 *.swp

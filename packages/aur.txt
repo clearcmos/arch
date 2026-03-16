@@ -1,20 +1,12 @@
-# Browser
-brave-bin
-google-chrome
-
-# Editor
-visual-studio-code-bin
-
-# Communication
-slack-desktop
-
-# Password Manager
 1password
 1password-cli
-
-# Gaming
-lutris-world-of-warcraft-dependencies-amd
+brave-bin
 curseforge
-
-# Media
+fsearch
+google-chrome
+localsend
+lutris-world-of-warcraft-dependencies-amd
+ocrmypdf
+slack-desktop
 spotify
+visual-studio-code-bin

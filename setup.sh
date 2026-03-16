@@ -189,12 +189,9 @@ info "  Overview shortcut disabled (takes effect after re-login)."
 # --- KDE Dark Theme ---
 
 info "Applying KDE dark theme..."
-if command -v plasma-apply-colorscheme &>/dev/null; then
-    plasma-apply-colorscheme BreezeDark
-    info "  applied BreezeDark color scheme."
-else
-    warn "  plasma-apply-colorscheme not found, skipping theme."
-fi
+kwriteconfig6 --file kdeglobals --group General --key ColorScheme BreezeDark
+kwriteconfig6 --file kdeglobals --group General --key ColorSchemeHash ""
+info "  set BreezeDark color scheme (applies on first KDE login)."
 
 # --- Mount Points (fstab) ---
 
@@ -341,11 +338,21 @@ link_config() {
     info "  linked $dest"
 }
 
+# Helper: copy a config file (for KDE files that break symlinks via atomic writes)
+copy_config() {
+    local src="$1"
+    local dest="$2"
+    mkdir -p "$(dirname "$dest")"
+    cp "$src" "$dest"
+    info "  copied $dest"
+}
+
 # KDE panel layout (centered taskbar with spacers, non-floating)
-link_config "$SCRIPT_DIR/config/kde/plasma-org.kde.plasma.desktop-appletsrc" "$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
-link_config "$SCRIPT_DIR/config/kde/plasmashellrc" "$HOME/.config/plasmashellrc"
-link_config "$SCRIPT_DIR/config/kde/powerdevilrc" "$HOME/.config/powerdevilrc"
-link_config "$SCRIPT_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
+# NOTE: KDE configs use cp, not symlinks — KConfig's QSaveFile atomic writes break symlinks
+copy_config "$SCRIPT_DIR/config/kde/plasma-org.kde.plasma.desktop-appletsrc" "$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
+copy_config "$SCRIPT_DIR/config/kde/plasmashellrc" "$HOME/.config/plasmashellrc"
+copy_config "$SCRIPT_DIR/config/kde/powerdevilrc" "$HOME/.config/powerdevilrc"
+copy_config "$SCRIPT_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
 
 # KDE monitor layout (set DP-2/ASUS center as primary after session starts)
 link_config "$SCRIPT_DIR/config/autostart/monitors.desktop" "$HOME/.config/autostart/monitors.desktop"
