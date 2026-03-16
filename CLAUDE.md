@@ -1,4 +1,4 @@
-# ~/git/mine/arch
+# ~/arch
 
 Idempotent Arch Linux post-install setup script and config files for a personal workstation. The single entry point is `./setup.sh`, which installs packages, enables services, and deploys config files.
 
@@ -19,7 +19,7 @@ From the Arch ISO (booted as root):
 bash <(curl -sL clearcmos.com/go)
 ```
 
-This fetches `install/bootstrap.sh` (via Cloudflare redirect), which downloads the install config and runs `install.sh`. The script prompts for root and user passwords, then runs archinstall. After install, the repo is automatically cloned to `~/arch` via archinstall's custom commands.
+This fetches `install/bootstrap.sh` (via Cloudflare redirect), which downloads the install config and runs `install.sh`. The script prompts for root and user passwords, then runs archinstall. After install, custom commands clone the repo to `~/arch`, deploy greetd/tuigreet config, sysctl quiet console, and set up the first-login autostart.
 
 After reboot, log in via tuigreet — a konsole window opens automatically and runs `setup.sh`. On success it offers to reboot; on failure it offers to open the log.
 
@@ -28,20 +28,20 @@ After reboot, log in via tuigreet — a konsole window opens automatically and r
 1. System update (`pacman -Syu`)
 2. Official packages (pacman)
 3. AUR helper (paru) if missing
-4. AUR packages (paru)
-5. Rust via rustup if missing
+4. Rust via rustup if missing (removes distro `rust` package if present)
+5. AUR packages (paru)
 6. Nix via Determinate Systems installer if missing
 7. Claude Code if missing
-8. Enable systemd services (including `pcscd` for YubiKey)
+8. Enable and start systemd services (including `pcscd` for YubiKey)
 9. AMD GPU kernel params
 10. Font rendering (system-level fontconfig in `/etc/fonts/conf.d/`)
-11. KDE dark theme (BreezeDark)
-12. Mount points (data disk + NAS)
-13. SSH key restore from NAS (age-encrypted, YubiKey decryption)
-14. Git/GitHub config
+11. KDE settings (lock screen, hot corners, dark theme)
+12. Mount points (data disk + NAS, explicit mount for mid-script access)
+13. SSH key restore from NAS (age-encrypted, YubiKey decryption — prompts for YubiKey)
+14. Git/GitHub config (interactive `gh auth login` with YubiKey passkey)
 15. SSH server config
-16. Deploy config files (copy KDE configs, symlink the rest)
-17. Bluetooth pairing
+16. Deploy config files (copy KDE configs including monitor layout, symlink the rest)
+17. Bluetooth pairing (background scan with polling)
 
 ## Desktop Environment
 
