@@ -140,20 +140,36 @@ fi
 info "Configuring AMD GPU kernel parameters..."
 
 # Add amdgpu kernel params to /etc/kernel/cmdline (systemd-boot)
-AMDGPU_PARAMS="amdgpu.gpu_recovery=1"
-if grep -q "amdgpu.gpu_recovery" /etc/kernel/cmdline 2>/dev/null; then
-    info "  kernel cmdline amdgpu params already set."
+KERNEL_PARAMS=(
+    "amdgpu.gpu_recovery=1"
+    "amdgpu.pcie_atomics=1"
+    "nmi_watchdog=0"
+)
+ALL_SET=true
+for param in "${KERNEL_PARAMS[@]}"; do
+    key="${param%%=*}"
+    if ! grep -q "$key" /etc/kernel/cmdline 2>/dev/null; then
+        ALL_SET=false
+        break
+    fi
+done
+if $ALL_SET; then
+    info "  kernel cmdline params already set."
 else
     if [[ -f /etc/kernel/cmdline ]]; then
-        # Append to existing cmdline
-        sudo sed -i "s/$/ $AMDGPU_PARAMS/" /etc/kernel/cmdline
+        CMDLINE=$(cat /etc/kernel/cmdline)
     else
-        # Create from current boot options + amdgpu params
-        CURRENT_OPTS=$(cat /proc/cmdline)
-        echo "$CURRENT_OPTS $AMDGPU_PARAMS" | sudo tee /etc/kernel/cmdline >/dev/null
+        CMDLINE=$(cat /proc/cmdline)
     fi
+    for param in "${KERNEL_PARAMS[@]}"; do
+        key="${param%%=*}"
+        if ! echo "$CMDLINE" | grep -q "$key"; then
+            CMDLINE="$CMDLINE $param"
+        fi
+    done
+    echo "$CMDLINE" | sudo tee /etc/kernel/cmdline >/dev/null
     sudo kernel-install add "$(uname -r)" /usr/lib/modules/"$(uname -r)"/vmlinuz
-    info "  added amdgpu params and regenerated boot entry."
+    info "  added kernel params and regenerated boot entry."
 fi
 
 # --- Font Rendering (system-level fontconfig) ---
@@ -415,6 +431,7 @@ link_config "$SCRIPT_DIR/config/autostart/bluetooth.desktop" "$HOME/.config/auto
 link_config "$SCRIPT_DIR/config/environment.d/10-amd-gpu.conf" "$HOME/.config/environment.d/10-amd-gpu.conf"
 link_config "$SCRIPT_DIR/config/environment.d/10-wayland.conf" "$HOME/.config/environment.d/10-wayland.conf"
 link_config "$SCRIPT_DIR/config/environment.d/20-gaming.conf" "$HOME/.config/environment.d/20-gaming.conf"
+link_config "$SCRIPT_DIR/config/environment.d/30-ai.conf" "$HOME/.config/environment.d/30-ai.conf"
 
 # Brave
 link_config "$SCRIPT_DIR/config/brave/brave-flags.conf" "$HOME/.config/brave-flags.conf"
@@ -426,12 +443,26 @@ link_config "$SCRIPT_DIR/config/claude-code/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
 # Shell aliases
 link_config "$SCRIPT_DIR/config/shell/aliases.sh" "$HOME/.config/shell/aliases.sh"
 
-# Source aliases from bashrc if not already present
+# Shell functions
+link_config "$SCRIPT_DIR/config/shell/functions.sh" "$HOME/.config/shell/functions.sh"
+
+# getrepo script
+mkdir -p "$HOME/.local/bin"
+ln -sf "$SCRIPT_DIR/config/shell/getrepo.sh" "$HOME/.local/bin/getrepo"
+chmod +x "$SCRIPT_DIR/config/shell/getrepo.sh"
+info "  linked getrepo to ~/.local/bin/"
+
+# Source aliases and functions from bashrc if not already present
 if ! grep -q 'shell/aliases.sh' "$HOME/.bashrc" 2>/dev/null; then
     echo '' >> "$HOME/.bashrc"
     echo '# Custom aliases' >> "$HOME/.bashrc"
     echo '[ -f "$HOME/.config/shell/aliases.sh" ] && source "$HOME/.config/shell/aliases.sh"' >> "$HOME/.bashrc"
     info "  added aliases source line to ~/.bashrc"
+fi
+
+if ! grep -q 'shell/functions.sh' "$HOME/.bashrc" 2>/dev/null; then
+    echo '[ -f "$HOME/.config/shell/functions.sh" ] && source "$HOME/.config/shell/functions.sh"' >> "$HOME/.bashrc"
+    info "  added functions source line to ~/.bashrc"
 fi
 
 # greetd (login manager, system config, needs root)
@@ -448,6 +479,33 @@ info "  deployed sysctl quiet console config."
 sudo mkdir -p /etc/brave/policies/managed
 sudo cp "$SCRIPT_DIR/config/brave/policies.json" /etc/brave/policies/managed/policies.json
 info "  copied Brave policies to /etc/brave/policies/managed/"
+
+# --- IPv4 Preference ---
+
+info "Configuring IPv4 preference..."
+if grep -q '^precedence ::ffff:0:0/96  100' /etc/gai.conf 2>/dev/null; then
+    info "  IPv4 preference already set."
+else
+    sudo sed -i 's/^#precedence ::ffff:0:0\/96  100/precedence ::ffff:0:0\/96  100/' /etc/gai.conf
+    info "  enabled IPv4 preference in /etc/gai.conf."
+fi
+
+# --- Local DNS Entries ---
+
+info "Configuring local DNS entries..."
+declare -A DNS_ENTRIES=(
+    ["money.home.arpa"]="127.0.0.1"
+    ["dashboard.home.arpa"]="127.0.0.1"
+    ["meds.home.arpa"]="127.0.0.1"
+)
+for host in "${!DNS_ENTRIES[@]}"; do
+    if grep -q "$host" /etc/hosts 2>/dev/null; then
+        info "  $host already in /etc/hosts."
+    else
+        echo "${DNS_ENTRIES[$host]} $host" | sudo tee -a /etc/hosts >/dev/null
+        info "  added $host to /etc/hosts."
+    fi
+done
 
 # --- Bluetooth Devices ---
 
