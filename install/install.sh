@@ -61,6 +61,26 @@ cat > "$CREDS" <<EOF
 EOF
 
 echo "Credentials written to $CREDS (will be lost on reboot)."
+
+# --- Resolve /dev/disk/by-id/ to canonical device path ---
+# archinstall doesn't follow symlinks, so we resolve at runtime
+
+RESOLVED_CONFIG="/tmp/user_configuration.json"
+cp "$CONFIG" "$RESOLVED_CONFIG"
+
+by_id_path=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d['disk_config']['device_modifications'][0]['device'])" "$CONFIG")
+if [[ "$by_id_path" == /dev/disk/by-id/* ]]; then
+    if [[ ! -L "$by_id_path" ]]; then
+        echo "ERROR: $by_id_path does not exist on this system" >&2
+        exit 1
+    fi
+    real_dev=$(readlink -f "$by_id_path")
+    sed -i "s|$by_id_path|$real_dev|" "$RESOLVED_CONFIG"
+    echo "Resolved disk: $by_id_path -> $real_dev"
+else
+    echo "Disk path: $by_id_path (already canonical)"
+fi
+
 echo
 echo "Starting archinstall..."
-archinstall --config "$CONFIG" --creds "$CREDS"
+archinstall --config "$RESOLVED_CONFIG" --creds "$CREDS"
