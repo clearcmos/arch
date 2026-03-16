@@ -123,11 +123,17 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         if systemctl is-enabled "$line" &>/dev/null; then
             info "  service '$line' already enabled."
         else
-            sudo systemctl enable "$line"
-            info "  enabled service '$line'."
+            sudo systemctl enable --now "$line"
+            info "  enabled and started service '$line'."
         fi
     fi
 done < "$SCRIPT_DIR/services.txt"
+
+# Ensure pcscd is running (socket-activated but needed before YubiKey steps)
+if ! systemctl is-active pcscd &>/dev/null; then
+    sudo systemctl start pcscd
+    info "  started pcscd (needed for YubiKey)."
+fi
 
 # --- AMD GPU Kernel Params ---
 
