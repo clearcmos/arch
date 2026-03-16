@@ -259,7 +259,18 @@ else
 fi
 sudo mkdir -p /mnt/syno
 sudo systemctl daemon-reload
-info "  /mnt/syno configured (automount on access)."
+
+# Ensure NAS is mounted (automount may not trigger mid-script)
+if ! mountpoint -q /mnt/syno; then
+    sudo mount /mnt/syno || sudo mount -t cifs "$SYNO_SHARE" /mnt/syno \
+        -o credentials=/etc/cifs/credentials,uid=1000,gid=100,vers=3.0 || true
+fi
+
+if mountpoint -q /mnt/syno; then
+    info "  /mnt/syno mounted."
+else
+    warn "  /mnt/syno failed to mount — NAS steps will be skipped."
+fi
 
 # --- SSH Key (restore from NAS, encrypted with YubiKey) ---
 
