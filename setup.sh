@@ -284,6 +284,12 @@ else
     if [[ -f "$SSH_BACKUP_DIR/id_ed25519.age" ]]; then
         mkdir -p "$HOME/.ssh"
         chmod 700 "$HOME/.ssh"
+        echo ""
+        echo "  SSH key restore requires YubiKey."
+        read -r -p "  Is your YubiKey plugged in? [Y/n] " yk_ready
+        if [[ "$yk_ready" =~ ^[Nn]$ ]]; then
+            warn "  skipping SSH key restore. Re-run setup.sh with YubiKey plugged in."
+        else
         info "  decrypting SSH key from NAS (touch YubiKey when it blinks)..."
         age -d -i "$SCRIPT_DIR/config/age/yubikey-identity.txt" \
             -o "$SSH_KEY" "$SSH_BACKUP_DIR/id_ed25519.age"
@@ -291,6 +297,7 @@ else
         cp "$SSH_BACKUP_DIR/id_ed25519.pub" "$HOME/.ssh/id_ed25519.pub"
         chmod 644 "$HOME/.ssh/id_ed25519.pub"
         info "  SSH key restored."
+        fi
     else
         warn "  no SSH backup found at $SSH_BACKUP_DIR, skipping."
         warn "  generate a key manually: ssh-keygen -t ed25519"
