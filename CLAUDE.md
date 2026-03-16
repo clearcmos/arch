@@ -9,22 +9,22 @@ Idempotent Arch Linux post-install setup script and config files for a personal 
 - `packages/aur.txt` - AUR packages (installed via paru), same format.
 - `services.txt` - Systemd services to enable. Lines prefixed with `user:` are user-level services.
 - `config/` - Config files deployed to `~/.config/` or `/etc/`. KDE configs are copied (KConfig's atomic writes break symlinks). Non-KDE user configs are symlinked. System configs under `/etc/` are copied (require root ownership).
-- `install/` - archinstall JSON configs (`user_configuration.json`, `user_credentials.json`). Used for automated base install from the Arch ISO. The disk `device` field uses `/dev/disk/by-id/` (serial-based) instead of `/dev/nvmeXnY` because NVMe device numbering is not stable across reboots.
+- `install/` - archinstall config and installer script. `user_configuration.json` has system settings (disk, packages, locale). `install.sh` is the entry point — it prompts for passwords, hashes them, writes a temporary credentials file, and runs archinstall. The disk `device` field uses `/dev/disk/by-id/` (serial-based) instead of `/dev/nvmeXnY` because NVMe device numbering is not stable across reboots. No passwords or secrets are stored in the repo.
 
 ## Fresh Install from Arch ISO
 
 From the Arch ISO (booted as root):
 
 ```bash
-# Enable SSH so you can scp the config files from another machine
-systemctl start sshd
-passwd root
+# Install git (not included on the ISO)
+pacman -Sy git
 
-# From your other machine, copy the install configs over
-scp install/user_configuration.json install/user_credentials.json root@<ip>:/root/
+# Clone the repo
+git clone https://github.com/clearcmos/arch.git
+cd arch
 
-# Back on the Arch ISO, run archinstall with the configs
-archinstall --config /root/user_configuration.json --creds /root/user_credentials.json
+# Run the installer (prompts for root and user passwords)
+./install/install.sh
 ```
 
 After archinstall completes and you reboot into the new system, clone this repo and run `./setup.sh`.
