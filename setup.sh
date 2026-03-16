@@ -392,9 +392,7 @@ copy_config "$SCRIPT_DIR/config/kde/plasma-org.kde.plasma.desktop-appletsrc" "$H
 copy_config "$SCRIPT_DIR/config/kde/plasmashellrc" "$HOME/.config/plasmashellrc"
 copy_config "$SCRIPT_DIR/config/kde/powerdevilrc" "$HOME/.config/powerdevilrc"
 copy_config "$SCRIPT_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
-
-# KDE monitor layout (set DP-2/ASUS center as primary after session starts)
-link_config "$SCRIPT_DIR/config/autostart/monitors.desktop" "$HOME/.config/autostart/monitors.desktop"
+copy_config "$SCRIPT_DIR/config/kde/kwinoutputconfig.json" "$HOME/.config/kwinoutputconfig.json"
 
 # Bluetooth auto-connect on login
 link_config "$SCRIPT_DIR/config/autostart/bluetooth.desktop" "$HOME/.config/autostart/bluetooth.desktop"
