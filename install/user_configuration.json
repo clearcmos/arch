@@ -19,6 +19,9 @@
     },
     "custom_commands": [
         "git clone https://github.com/clearcmos/arch.git /home/nicholas/arch",
+        "cp /home/nicholas/arch/config/greetd/config.toml /etc/greetd/config.toml",
+        "cp /home/nicholas/arch/config/greetd/pam-greetd /etc/pam.d/greetd",
+        "cp /home/nicholas/arch/config/sysctl/99-quiet-console.conf /etc/sysctl.d/99-quiet-console.conf",
         "mkdir -p /home/nicholas/.config/autostart",
         "cp /home/nicholas/arch/config/autostart/first-login.desktop /home/nicholas/.config/autostart/",
         "chown -R nicholas:nicholas /home/nicholas/arch /home/nicholas/.config/autostart"

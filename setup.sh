@@ -7,6 +7,11 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 trap 'sleep 0.1' EXIT  # allow tee to flush
 echo "=== setup.sh started at $(date) ==="
 
+# --- Sudo keep-alive (ask once, refresh in background) ---
+
+sudo -v
+while true; do sudo -n true; sleep 55; kill -0 "$$" || exit; done 2>/dev/null &
+
 # --- Helpers ---
 
 info()  { printf '\033[0;32m[INFO]\033[0m %s\n' "$1"; }
@@ -52,12 +57,6 @@ else
     info "paru already installed, skipping."
 fi
 
-# --- AUR Packages ---
-
-info "Installing AUR packages..."
-read_packages "$SCRIPT_DIR/packages/aur.txt" \
-    | xargs paru -S --needed --noconfirm
-
 # --- Rust (via rustup) ---
 
 if ! command -v rustup &>/dev/null; then
@@ -67,6 +66,12 @@ if ! command -v rustup &>/dev/null; then
 else
     info "Rust already installed, skipping."
 fi
+
+# --- AUR Packages ---
+
+info "Installing AUR packages..."
+read_packages "$SCRIPT_DIR/packages/aur.txt" \
+    | xargs paru -S --needed --noconfirm
 
 # --- Nix (Determinate Systems installer) ---
 
@@ -391,6 +396,11 @@ fi
 sudo cp "$SCRIPT_DIR/config/greetd/config.toml" /etc/greetd/config.toml
 sudo cp "$SCRIPT_DIR/config/greetd/pam-greetd" /etc/pam.d/greetd
 info "  deployed greetd config and PAM (KWallet auto-unlock)."
+
+# Quiet console (suppress noisy kernel messages on greetd TTY)
+sudo cp "$SCRIPT_DIR/config/sysctl/99-quiet-console.conf" /etc/sysctl.d/99-quiet-console.conf
+sudo sysctl --load /etc/sysctl.d/99-quiet-console.conf &>/dev/null
+info "  deployed sysctl quiet console config."
 
 # Brave policies (system-wide, needs root)
 sudo mkdir -p /etc/brave/policies/managed
