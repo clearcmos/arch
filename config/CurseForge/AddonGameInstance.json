@@ -1,0 +1,37 @@
+[
+  {
+    "guid": "9bcfa6cc-4b7e-4a9e-b3fb-bee66b6a4f0b",
+    "gameTypeID": 1,
+    "installPath": "/mnt/data/games/World of Warcraft/_retail_/",
+    "name": "Retail",
+    "cachedScans": [],
+    "isValid": true,
+    "lastPreviousMatchUpdate": "0001-01-01T00:00:00",
+    "lastRefreshAttempt": "0001-01-01T00:00:00",
+    "isEnabled": true,
+    "gameVersion": null,
+    "gameVersionFlavor": null,
+    "gameVersionTypeId": 517,
+    "preferenceAlternateFile": false,
+    "preferenceAutoInstallUpdates": false,
+    "preferenceDeleteOrphanedDependencies": false,
+    "preferenceDeleteSavedVariables": false,
+    "preferenceReleaseType": 1,
+    "preferenceModdingFolderPath": null,
+    "syncProfile": {
+      "PreferenceEnabled": false,
+      "PreferenceAutoSync": true,
+      "PreferenceAutoDelete": false,
+      "PreferenceBackupSavedVariables": false,
+      "GameInstanceGuid": "9bcfa6cc-4b7e-4a9e-b3fb-bee66b6a4f0b",
+      "SyncProfileID": 0,
+      "SavedVariablesProfile": null,
+      "LastSyncDate": "0001-01-01T00:00:00"
+    },
+    "installDate": "0001-01-01T00:00:00",
+    "installedAddons": [],
+    "installedGamePrerequisites": [],
+    "wasNameManuallyChanged": false,
+    "wasGameVersionTypeIdManuallyChanged": false
+  }
+]
