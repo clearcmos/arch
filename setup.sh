@@ -458,11 +458,13 @@ link_config "$SCRIPT_DIR/config/shell/aliases.sh" "$HOME/.config/shell/aliases.s
 # Shell functions
 link_config "$SCRIPT_DIR/config/shell/functions.sh" "$HOME/.config/shell/functions.sh"
 
-# getrepo script
+# Shell scripts -> ~/.local/bin/
 mkdir -p "$HOME/.local/bin"
-ln -sf "$SCRIPT_DIR/config/shell/getrepo.sh" "$HOME/.local/bin/getrepo"
-chmod +x "$SCRIPT_DIR/config/shell/getrepo.sh"
-info "  linked getrepo to ~/.local/bin/"
+for script in getrepo gpush gscan create-repo repo ghelp; do
+    chmod +x "$SCRIPT_DIR/config/shell/${script}.sh"
+    ln -sf "$SCRIPT_DIR/config/shell/${script}.sh" "$HOME/.local/bin/$script"
+done
+info "  linked shell scripts to ~/.local/bin/"
 
 # Source aliases and functions from bashrc if not already present
 if ! grep -q 'shell/aliases.sh' "$HOME/.bashrc" 2>/dev/null; then

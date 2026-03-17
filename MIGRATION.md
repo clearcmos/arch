@@ -78,30 +78,13 @@ From `modules/core/packages.nix`, these are deployed as system-wide scripts:
 | `mergepdf` | Interactive PDF merger with fzf | qpdf, fzf |
 | `fcm-test` | Firebase Cloud Messaging test | python, firebase-admin |
 
-### 2.4 Missing FZF Utilities - TODO
+### 2.4 FZF Utilities - DONE
 
-From `modules/core/dev/fzf.nix`:
+Added `fnano`, `fcd`, `fcat`, `fgrep` to `config/shell/functions.sh`. Skipped `fobsi` (no longer using Obsidian).
 
-| Function | Purpose |
-|----------|---------|
-| `fnano` | Find file + search + open in nano |
-| `fcd` | Navigate to directory with fzf |
-| `fcat` | View file contents with preview |
-| `fgrep` | Search + edit matches |
-| `fobsi` | Search Obsidian vault |
+### 2.5 Git Commands - DONE
 
-### 2.5 Missing Git Commands - TODO
-
-From `modules/core/dev/git.nix`:
-
-| Command | Purpose |
-|---------|---------|
-| `gissue` | Create GitHub issues with AI-generated titles |
-| `gpush` | Smart multi-repo push workflow |
-| `gscan` | Secret scanning via trufflehog |
-| `create-repo` | Create new GitHub repo |
-| `ghelp` | Git command reference |
-| `repo` | Toggle repo visibility (public/private) |
+Added `gpush`, `gscan`, `create-repo`, `repo`, `ghelp` as standalone scripts in `config/shell/`, deployed to `~/.local/bin/`. Skipped `gissue` (not wanted).
 
 ---
 
@@ -122,12 +105,9 @@ NixOS config:
 - CORS origins for LAN access
 - Cyclic dependency fixes for systemd
 
-### 3.3 Fail2ban SSH - TODO
+### 3.3 Fail2ban SSH - DONE
 
-- sshd jail: 5 retries in 10min = 1h ban
-- sshd-flood jail: 10 retries in 1min = 3h ban
-- LAN whitelist (192.168.1.0/24)
-- Commands: `fail2ban-ssh-status`, `fail2ban-ssh-unban`
+Configured in `config/fail2ban/jail.local` and deployed by `setup.sh`. sshd jail: 5 retries in 10min = 1h ban, LAN whitelisted.
 
 ### 3.4 Samba - TODO
 
