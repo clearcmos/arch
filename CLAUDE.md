@@ -5,11 +5,11 @@ Idempotent Arch Linux post-install setup script and config files for a personal 
 ## Architecture
 
 - `setup.sh` - Main bash script. Idempotent: uses `--needed` flags, `command -v` guards, and `systemctl is-enabled` checks so re-runs are safe.
-- `packages/official.txt` - Pacman packages, one per line. Comments (`#`) and blank lines are stripped.
+- `packages/official.txt` - Pacman packages, one per line, alphabetically sorted. This is the single source of truth for all official packages.
 - `packages/aur.txt` - AUR packages (installed via paru), same format.
 - `services.txt` - Systemd services to enable. Lines prefixed with `user:` are user-level services.
 - `config/` - Config files deployed to `~/.config/` or `/etc/`. KDE configs are copied (KConfig's atomic writes break symlinks). Non-KDE user configs are symlinked. System configs under `/etc/` are copied (require root ownership).
-- `install/` - archinstall config and installer script. `user_configuration.json` has system settings (disk, packages, locale). `install.sh` is the entry point — it prompts for passwords, hashes them, writes a temporary credentials file, and runs archinstall. The disk `device` field uses `/dev/disk/by-id/` (serial-based) instead of `/dev/nvmeXnY` because NVMe device numbering is not stable across reboots. No passwords or secrets are stored in the repo.
+- `install/` - archinstall config and installer script. `user_configuration.json` has system settings (disk, locale) and a minimal boot-only package set (just enough for KDE + network + terminal). All other packages live in `packages/official.txt` and are installed by `setup.sh`. `install.sh` is the entry point -- it prompts for passwords, hashes them, writes a temporary credentials file, and runs archinstall. The disk `device` field uses `/dev/disk/by-id/` (serial-based) instead of `/dev/nvmeXnY` because NVMe device numbering is not stable across reboots. No passwords or secrets are stored in the repo.
 
 ## Fresh Install from Arch ISO
 
@@ -60,6 +60,6 @@ SSH keys are encrypted with `age` + `age-plugin-yubikey` and stored on the NAS a
 ## Key Conventions
 
 - All idempotency must be preserved when modifying `setup.sh` - never add operations that fail or duplicate on re-run.
-- `official.txt` uses comments for category grouping; maintain this when adding packages. `aur.txt` is a flat alphabetical list with no comments.
+- Both `official.txt` and `aur.txt` are flat alphabetical lists with no comments or categories.
 - **Every config file must live in this repo and be deployed to its target location.** Never create or edit config files directly in `~/.config/` or elsewhere - always add them under `config/` in this repo and deploy via `setup.sh`. The repo is the single source of truth for all configuration. KDE configs are copied (not symlinked) because KConfig's QSaveFile atomic writes break symlinks. System configs under `/etc/` are also copied (require root ownership). System-level fontconfig uses symlinks from `/usr/share/fontconfig/conf.avail/` to `/etc/fonts/conf.d/`.
 - The script targets a single machine with AMD RX 6800 XT GPU and Intel i7-13700K.

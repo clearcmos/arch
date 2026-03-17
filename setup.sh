@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="$SCRIPT_DIR/setup.log"
-exec > >(tee -a "$LOG_FILE") 2>&1
+exec > >(tee "$LOG_FILE") 2>&1
 trap 'sleep 0.1' EXIT  # allow tee to flush
 echo "=== setup.sh started at $(date) ==="
 
@@ -424,8 +424,10 @@ copy_config "$SCRIPT_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
 copy_config "$SCRIPT_DIR/config/kde/kwinoutputconfig.json" "$HOME/.config/kwinoutputconfig.json"
 
 # Bluetooth main config (system-level, requires root)
+BT_CONFIG_CHANGED=false
 if ! diff -q "$SCRIPT_DIR/config/bluetooth/main.conf" /etc/bluetooth/main.conf &>/dev/null; then
     sudo cp "$SCRIPT_DIR/config/bluetooth/main.conf" /etc/bluetooth/main.conf
+    BT_CONFIG_CHANGED=true
     info "  copied /etc/bluetooth/main.conf"
 else
     info "  /etc/bluetooth/main.conf already up to date."
@@ -490,6 +492,39 @@ sudo mkdir -p /etc/brave/policies/managed
 sudo cp "$SCRIPT_DIR/config/brave/policies.json" /etc/brave/policies/managed/policies.json
 info "  copied Brave policies to /etc/brave/policies/managed/"
 
+# --- Lutris (Battle.net config) ---
+
+info "Configuring Lutris..."
+LUTRIS_GAMES_DIR="$HOME/.local/share/lutris/games"
+LUTRIS_DB="$HOME/.local/share/lutris/pga.db"
+BNET_CONFIG="battlenet-standard-1773703119.yml"
+
+mkdir -p "$LUTRIS_GAMES_DIR"
+cp "$SCRIPT_DIR/config/lutris/$BNET_CONFIG" "$LUTRIS_GAMES_DIR/$BNET_CONFIG"
+info "  deployed Battle.net game config."
+
+# Seed the Lutris DB entry if missing
+if [[ -f "$LUTRIS_DB" ]] && command -v sqlite3 &>/dev/null; then
+    if ! sqlite3 "$LUTRIS_DB" "SELECT id FROM games WHERE slug='battlenet';" | grep -q .; then
+        sqlite3 "$LUTRIS_DB" "INSERT INTO games (name, slug, installer_slug, platform, runner, directory, installed, installed_at, year, configpath) VALUES ('Battle.net', 'battlenet', 'battlenet-standard', 'Windows', 'wine', '/mnt/data/games/battlenet', 1, $(date +%s), 1996, 'battlenet-standard-1773703119');"
+        info "  added Battle.net to Lutris database."
+    else
+        info "  Battle.net already in Lutris database."
+    fi
+fi
+
+# --- CurseForge (seed WoW Retail game instance) ---
+
+CF_INSTANCE_DIR="$HOME/.config/CurseForge/agent/GameInstances"
+CF_INSTANCE_FILE="$CF_INSTANCE_DIR/AddonGameInstance.json"
+if [[ -f "$CF_INSTANCE_FILE" ]]; then
+    info "CurseForge game instance already exists, skipping."
+else
+    mkdir -p "$CF_INSTANCE_DIR"
+    cp "$SCRIPT_DIR/config/CurseForge/AddonGameInstance.json" "$CF_INSTANCE_FILE"
+    info "Seeded CurseForge WoW Retail game instance."
+fi
+
 # --- IPv4 Preference ---
 
 info "Configuring IPv4 preference..."
@@ -519,9 +554,12 @@ done
 
 # --- Bluetooth Devices ---
 
-# Restart bluetooth to pick up any main.conf changes (ControllerMode, etc.)
-sudo systemctl restart bluetooth
-sleep 1
+# Only restart bluetooth if main.conf was changed (avoids disconnecting devices)
+if $BT_CONFIG_CHANGED; then
+    sudo systemctl restart bluetooth
+    sleep 1
+    info "  restarted bluetooth (config changed)."
+fi
 
 info "Configuring Bluetooth devices..."
 
@@ -565,8 +603,26 @@ else
     bluetoothctl trust "$Q30_MAC" 2>/dev/null && info "  trusted Soundcore Life Q30." || true
 fi
 
+# --- Fail2ban (SSH protection) ---
+
+info "Configuring fail2ban..."
+if diff -q "$SCRIPT_DIR/config/fail2ban/jail.local" /etc/fail2ban/jail.local &>/dev/null; then
+    info "  fail2ban jail.local already up to date."
+else
+    sudo cp "$SCRIPT_DIR/config/fail2ban/jail.local" /etc/fail2ban/jail.local
+    info "  deployed fail2ban jail.local."
+fi
+if systemctl is-enabled fail2ban &>/dev/null; then
+    info "  fail2ban already enabled."
+    sudo systemctl reload fail2ban || sudo systemctl restart fail2ban
+    info "  reloaded fail2ban."
+else
+    sudo systemctl enable --now fail2ban
+    info "  enabled and started fail2ban."
+fi
+
 # --- Done ---
 
 echo ""
 info "Setup complete!"
-info "Reboot to apply changes."
+info "Some changes may require a reboot to take effect."

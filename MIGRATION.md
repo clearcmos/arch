@@ -8,79 +8,11 @@ Status key: DONE = already in ~/arch, TODO = needs migration, SKIP = not applica
 
 ## 1. Packages
 
-### 1.1 Missing Official Packages (pacman)
+### 1.1 Official Packages (pacman) - DONE
 
-These were in NixOS but are not in `packages/official.txt`:
+All needed packages added to `packages/official.txt` (single source of truth). archinstall JSON trimmed to boot-minimum. fail2ban SSH jail configured in `config/fail2ban/jail.local` and deployed by `setup.sh`.
 
-| Package | NixOS Module | Purpose |
-|---------|-------------|---------|
-| `jq` | core/packages | JSON processor (used by many scripts) |
-| `htop` | core/packages | Process viewer |
-| `tree` | core/packages | Directory listing |
-| `ncdu` | core/packages | Disk usage analyzer |
-| `lsof` | core/packages | List open files |
-| `nmap` | core/packages | Network scanner |
-| `bind` (dig) | core/packages | DNS lookup tools |
-| `whois` | core/packages | Domain info |
-| `aria2` | core/packages | Download accelerator |
-| `dos2unix` | core/packages | Line ending converter |
-| `wl-clipboard` | core/packages | Wayland clipboard (wl-copy/wl-paste) |
-| `shellcheck` | core/packages | Shell script linter |
-| `tldr` | core/packages | Simplified man pages |
-| `parted` | core/packages | Disk partitioning |
-| `usbutils` | core/packages | lsusb |
-| `ffmpeg` | core/packages | Media processing |
-| `mediainfo` | core/packages | Media file info |
-| `mkvtoolnix-cli` | core/packages | MKV manipulation |
-| `iotop` | core/packages | I/O monitor |
-| `cpulimit` | core/packages | CPU throttle |
-| `pandoc` | core/packages | Document converter |
-| `poppler` (pdftotext etc) | core/packages | PDF tools |
-| `ghostscript` | core/packages | PostScript/PDF |
-| `qpdf` | core/packages | PDF manipulation |
-| `tesseract` | core/packages | OCR engine |
-| `rclone` | core/packages | Cloud storage sync |
-| `openssl` | core/packages | Crypto toolkit |
-| `git-filter-repo` | core/packages | Git history rewriting |
-| `glow` | core/packages | Markdown renderer |
-| `p7zip` | core/packages | 7z compression |
-| `docker` | core/docker | Container runtime |
-| `docker-compose` | core/docker | Multi-container orchestration |
-| `docker-buildx` | core/docker | Docker build plugin |
-| `v4l-utils` | host/cmos | Webcam config (v4l2-ctl) |
-| `android-tools` | host/cmos | ADB for Android dev |
-| `kate` | desktop/kde | KDE text editor |
-| `imagemagick` | desktop/packages | Image manipulation |
-| `yt-dlp` | desktop/packages | Video downloader |
-| `ddcutil` | desktop/packages | Monitor DDC/CI control |
-| `kitty` | desktop/terminals | GPU-accelerated terminal |
-| `virt-manager` | desktop/vms | VM management GUI |
-| `qemu-full` | desktop/vms | VM hypervisor |
-| `libvirt` | desktop/vms | VM abstraction layer |
-| `swtpm` | desktop/vms | Software TPM for VMs |
-| `cmake` | core/dev/tools | Build system |
-| `gcc` | core/dev/tools | C/C++ compiler |
-| `pkg-config` | core/dev/tools | Build tool |
-| `rust-analyzer` | core/dev/tools | Rust LSP |
-| `lua` | desktop/packages | Lua interpreter |
-| `xdotool` | desktop/packages | X11 automation |
-| `wmctrl` | desktop/packages | Window management |
-| `flatpak` | desktop/flatpak | Flatpak support |
-| `cockpit` | core/cockpit | Web system management |
-| `lynis` | security/scanning | Security auditing |
-| `rustscan` | security/scanning | Fast port scanner |
-| `fail2ban` | services/fail2ban-ssh | Intrusion prevention |
-| `steam` | desktop/gaming | Gaming platform |
-| `heroic-games-launcher-bin` | desktop/gaming | Epic/GOG launcher |
-| `mangohud` | desktop/gaming | FPS overlay |
-| `sunshine` | desktop/gaming | Game streaming server |
-| `moonlight-qt` | desktop/gaming | Game streaming client |
-| `jellyfin-media-player` | desktop/packages | Media player |
-| `nextcloud-client` | desktop/packages | File sync |
-| `radeontop` | desktop/ai/core | GPU usage monitor |
-| `clinfo` | desktop/ai/core | OpenCL info |
-| `pciutils` | desktop/amd-gpu | lspci |
-| `tailscale` | desktop/packages | VPN |
+Skipped (not wanted): `cpulimit`, `kitty`, `steam`, `mangohud`, `sunshine`, `moonlight-qt`, `jellyfin-media-player`, `p7zip` (have 7zip), `pkg-config` (have pkgconf), `rust-analyzer` (use rustup), `swtpm`, `heroic-games-launcher-bin` (moved to AUR 1.2).
 
 ### 1.2 Missing AUR Packages
 
