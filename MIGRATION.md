@@ -58,25 +58,11 @@ From `modules/core/functions.nix`, these are substantial functions:
 | `ghere()` | Interactive grep across codebase | DONE |
 | `gc()` | Nix garbage collection analyzer | DONE |
 
-### 2.3 Missing Custom Scripts - TODO
+### 2.3 Custom Scripts - DONE
 
-From `modules/core/packages.nix`, these are deployed as system-wide scripts:
+Deployed: `flushdns`, `check-cert`, `nuke-secret`, `video`, `myspace`, `claude-clean`, `mergepdf`. All in `config/shell/`, linked to `~/.local/bin/`.
 
-| Script | Purpose | Dependencies |
-|--------|---------|-------------|
-| `flushdns` | Flush DNS cache (resolvectl) | systemd-resolved |
-| `check-cert` | Check SSL certificate details | openssl |
-| `nuke-secret` | Remove secrets from git history | git-filter-repo |
-| `print` | Brother DCP-7060D print (USB + network) | cups, brother drivers |
-| `scan2pdf` / `scan2png` | Scanner with AI-powered categorization | sane, tesseract, claude-agent-sdk |
-| `pdf-order` | AI-powered PDF organizer | claude-agent-sdk, NAS mount |
-| `video` | ffmpeg conversion wrapper | ffmpeg |
-| `myspace` | Disk space checker (local + remote hosts) | ssh |
-| `shorten` | URL shortener CLI (s.clearcmos.com) | curl, chhoto-url API key |
-| `claude-clean` | Claude Code cache cleanup | find |
-| `meds` | Medication tracker CLI | curl |
-| `mergepdf` | Interactive PDF merger with fzf | qpdf, fzf |
-| `fcm-test` | Firebase Cloud Messaging test | python, firebase-admin |
+Skipped (dependencies not ready): `print`, `scan2pdf`/`scan2png`, `pdf-order`, `shorten`, `meds`, `fcm-test`. Documented in `docs/deferred-scripts.md`.
 
 ### 2.4 FZF Utilities - DONE
 
