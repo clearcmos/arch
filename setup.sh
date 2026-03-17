@@ -489,6 +489,15 @@ sudo cp "$SCRIPT_DIR/config/sysctl/99-quiet-console.conf" /etc/sysctl.d/99-quiet
 sudo sysctl --load /etc/sysctl.d/99-quiet-console.conf &>/dev/null
 info "  deployed sysctl quiet console config."
 
+# Kernel modules
+if [[ ! -f /etc/modules-load.d/i2c-dev.conf ]]; then
+    sudo cp "$SCRIPT_DIR/config/modules-load/i2c-dev.conf" /etc/modules-load.d/i2c-dev.conf
+    sudo modprobe i2c-dev
+    info "  enabled i2c-dev module (for ddcutil)."
+else
+    info "  i2c-dev module already configured."
+fi
+
 # Brave policies (system-wide, needs root)
 sudo mkdir -p /etc/brave/policies/managed
 sudo cp "$SCRIPT_DIR/config/brave/policies.json" /etc/brave/policies/managed/policies.json

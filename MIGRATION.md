@@ -236,14 +236,9 @@ Arch: Install `ollama-rocm` (AUR) or official `ollama` package
 
 ## 6. Gaming
 
-### 6.1 Steam - PARTIAL
+### 6.1 Steam - SKIP
 
-Lutris, wine-staging, winetricks, gamemode are installed. Missing:
-- Steam package itself
-- Proton-GE
-- Gaming environment variables (WINEFSYNC, WINE_CPU_TOPOLOGY, DXVK_LOG_LEVEL, VKD3D_CONFIG)
-- gaming-cleanup shutdown handler (kills Steam/Wine/Lutris on shutdown)
-- jemalloc, dxvk, vkd3d packages
+Not wanted.
 
 ### 6.2 WoW Management - TODO
 
@@ -337,17 +332,9 @@ NixOS firewall (iptables/nftables):
 
 Arch: Use `ufw` or `nftables` directly
 
-### 8.4 Sysctl Tweaks - TODO
+### 8.4 Sysctl Tweaks - SKIP
 
-From host/cmos/default.nix:
-- `net.bridge.bridge-nf-call-iptables = 0` (Discord RTC fix)
-- `net.bridge.bridge-nf-call-ip6tables = 0`
-- `net.netfilter.nf_conntrack_udp_timeout = 120`
-- `net.netfilter.nf_conntrack_udp_timeout_stream = 180`
-
-From ai/core.nix:
-- `vm.swappiness = 10`
-- Increased network buffer sizes for AI API traffic
+Deferred. Documented in `docs/deferred-sysctl.md`. Bridge netfilter tweaks only needed with br0. AI/ML tuning only needed with Ollama/ROCm.
 
 ### 8.5 IPv4 Preference - DONE
 
@@ -409,22 +396,18 @@ From host/cmos/default.nix:
 - Udev rules for Litra devices (MODE 0660, GROUP video)
 - nicholas in video group
 
-### 10.6 Kitty Terminal - TODO
+### 10.6 Kitty Terminal - SKIP
 
-- Config: JetBrains Mono size 11, Catppuccin Mocha theme
-- Opacity 0.95, blur 20, powerline tab bar
-- Theme switcher script
+Not wanted (using Konsole).
 
 ### 10.7 Konsole Root Profile - TODO
 
 - Root.profile that runs sudo -i
 - Breeze theme, 1000 history
 
-### 10.8 Flatpak + Flathub - TODO
+### 10.8 Flatpak + Flathub - DONE
 
-- Flatpak service enabled
-- Flathub repo added
-- Chatterino installed via Flatpak
+Flatpak installed and Flathub remote already configured.
 
 ### 10.9 Claude Desktop - TODO
 
@@ -441,12 +424,12 @@ Set: `amdgpu.gpu_recovery=1`, `amdgpu.pcie_atomics=1`, `nmi_watchdog=0`
 
 Skipped: `amdgpu.ppfeaturemask=0xffffffff` - enables unstable GFXOFF (bit 15) causing crashes/artifacts on Navi GPUs. Use `0xffff7fff` if overclocking is needed later.
 
-### 11.2 Kernel Modules - TODO
+### 11.2 Kernel Modules - DONE
 
-- `amdgpu` (early load - already handled by default on Arch)
-- `v4l2loopback` (virtual webcam)
-- `uinput` (mouse remap)
-- `i2c-dev` (DDC/CI monitor control)
+- `amdgpu` - already loaded by default on Arch
+- `i2c-dev` - deployed via `config/modules-load/i2c-dev.conf` for ddcutil
+- `v4l2loopback` - SKIP (not needed)
+- `uinput` - SKIP, documented in `docs/deferred-kernel-modules.md`
 
 ### 11.3 zram Swap - DONE
 
