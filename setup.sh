@@ -460,7 +460,7 @@ link_config "$SCRIPT_DIR/config/shell/functions.sh" "$HOME/.config/shell/functio
 
 # Shell scripts -> ~/.local/bin/
 mkdir -p "$HOME/.local/bin"
-for script in getrepo gpush gscan create-repo repo ghelp; do
+for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on; do
     chmod +x "$SCRIPT_DIR/config/shell/${script}.sh"
     ln -sf "$SCRIPT_DIR/config/shell/${script}.sh" "$HOME/.local/bin/$script"
 done
@@ -622,6 +622,79 @@ else
     sudo systemctl enable --now fail2ban
     info "  enabled and started fail2ban."
 fi
+
+# --- Docker ---
+
+info "Configuring Docker..."
+if ! groups nicholas | grep -q docker; then
+    sudo usermod -aG docker nicholas
+    info "  added nicholas to docker group."
+else
+    info "  nicholas already in docker group."
+fi
+sudo mkdir -p /etc/docker
+if ! diff -q "$SCRIPT_DIR/config/docker/daemon.json" /etc/docker/daemon.json &>/dev/null; then
+    sudo cp "$SCRIPT_DIR/config/docker/daemon.json" /etc/docker/daemon.json
+    info "  deployed docker daemon.json."
+else
+    info "  docker daemon.json already up to date."
+fi
+if systemctl is-enabled docker &>/dev/null; then
+    info "  docker already enabled."
+else
+    sudo systemctl enable --now docker
+    info "  enabled and started docker."
+fi
+sudo mkdir -p /opt/docker-compose
+sudo chown nicholas:docker /opt/docker-compose
+
+# --- Cockpit ---
+
+info "Configuring Cockpit..."
+sudo mkdir -p /etc/cockpit
+if ! diff -q "$SCRIPT_DIR/config/cockpit/cockpit.conf" /etc/cockpit/cockpit.conf &>/dev/null; then
+    sudo cp "$SCRIPT_DIR/config/cockpit/cockpit.conf" /etc/cockpit/cockpit.conf
+    info "  deployed cockpit.conf."
+else
+    info "  cockpit.conf already up to date."
+fi
+if systemctl is-enabled cockpit.socket &>/dev/null; then
+    info "  cockpit already enabled."
+else
+    sudo systemctl enable --now cockpit.socket
+    info "  enabled cockpit."
+fi
+
+# --- USB Hub Bluetooth Toggle ---
+
+info "Configuring USB hub Bluetooth toggle..."
+if ! diff -q "$SCRIPT_DIR/config/udev/99-usb-hub-bt-toggle.rules" /etc/udev/rules.d/99-usb-hub-bt-toggle.rules &>/dev/null; then
+    sudo cp "$SCRIPT_DIR/config/udev/99-usb-hub-bt-toggle.rules" /etc/udev/rules.d/99-usb-hub-bt-toggle.rules
+    sudo udevadm control --reload-rules
+    info "  deployed udev rules and reloaded."
+else
+    info "  udev rules already up to date."
+fi
+sudo cp "$SCRIPT_DIR/config/systemd/usb-hub-bt-off.service" /etc/systemd/system/usb-hub-bt-off.service
+sudo cp "$SCRIPT_DIR/config/systemd/usb-hub-bt-on.service" /etc/systemd/system/usb-hub-bt-on.service
+sudo systemctl daemon-reload
+info "  deployed USB hub BT toggle services."
+
+# --- KWin Scripts (Meta+F10 Screen Off, Meta+F11 BT Toggle) ---
+
+info "Configuring KWin scripts..."
+# Deploy user systemd services
+mkdir -p "$HOME/.config/systemd/user"
+cp "$SCRIPT_DIR/config/systemd/user/screen-off-toggle.service" "$HOME/.config/systemd/user/"
+cp "$SCRIPT_DIR/config/systemd/user/screen-off-watcher.service" "$HOME/.config/systemd/user/"
+cp "$SCRIPT_DIR/config/systemd/user/bt-toggle.service" "$HOME/.config/systemd/user/"
+systemctl --user daemon-reload
+info "  deployed user systemd services."
+
+# Deploy KWin scripts
+chmod +x "$SCRIPT_DIR/config/kwin/setup-kwin-scripts.sh"
+bash "$SCRIPT_DIR/config/kwin/setup-kwin-scripts.sh"
+info "  deployed KWin scripts (Meta+F10, Meta+F11)."
 
 # --- Done ---
 

@@ -90,96 +90,59 @@ Added `gpush`, `gscan`, `create-repo`, `repo`, `ghelp` as standalone scripts in 
 
 ## 3. Systemd Services
 
-### 3.1 Docker - TODO
+### 3.1 Docker - DONE
 
-NixOS config:
-- Docker daemon with overlay2 storage, experimental features
-- Docker Compose + buildx
-- nicholas in docker group
-- /opt/docker-compose directory
+Docker daemon with overlay2/experimental in `config/docker/daemon.json`. nicholas in docker group. /opt/docker-compose created. Deployed by `setup.sh`.
 
-### 3.2 Cockpit - TODO
+### 3.2 Cockpit - DONE
 
-- Port 9090, web-based system management
-- 4-hour session timeout
-- CORS origins for LAN access
-- Cyclic dependency fixes for systemd
+Config in `config/cockpit/cockpit.conf`. Port 9090, 4-hour session timeout, LAN CORS origins. Enabled via cockpit.socket in `setup.sh`.
 
 ### 3.3 Fail2ban SSH - DONE
 
 Configured in `config/fail2ban/jail.local` and deployed by `setup.sh`. sshd jail: 5 retries in 10min = 1h ban, LAN whitelisted.
 
-### 3.4 Samba - TODO
+### 3.4 Samba - SKIP
 
-- Share cmos home directory on LAN
-- SMB2/3 only, no guest, encrypted passwords
-- nicholas samba user with password from secrets
+Not needed currently.
 
-### 3.5 Borg Backup - TODO (High Priority)
+### 3.5 Borg Backup - SKIP
 
-NixOS had an automated borg backup system:
-- **Daily 5 AM**: Local backup to /mnt/data/backups/cmos/borg
-- **Daily 5 AM**: Remote backup to nicholas@offsite.bedrosn.com
-- Encryption: repokey-blake2 with passphrase
-- Compression: zstd level 3
-- Retention: 14 daily
-- Paths: /etc, ~/.bash_history, ~/.config (KDE), ~/.ssh, ~/.claude, ~/.local/share/diet-db, Desktop, Documents, git, Pictures, Videos, /root/.gnupg/.ssh
-- Excludes: node_modules, .venv, __pycache__, build, dist, target, .next
-- Manual commands: `backup-cmos-manual-borg`, `backup-cmos-manual-borg-dry`
+Deferred for later.
 
-Packages needed: `borg`
+### 3.6 Nextcloud Backup - SKIP
 
-### 3.6 Nextcloud Backup - TODO
-
-- Nightly 4 AM: Sync Nextcloud data to Google Drive via rclone
-- Script: backup-nextcloud.py
-- Timeout: 30 minutes
+Deferred for later.
 
 ### 3.7 Libvirt/KVM Virtualization - TODO
 
-- libvirtd service with swtpm (TPM emulation)
+- libvirtd service
 - nicholas in libvirtd, kvm, render groups
-- VM: nixvm (6GB RAM, 4 vCPUs, UEFI+SecureBoot, VirtIO, SPICE+GL)
-- Disk: /mnt/data/vm/nixvm/nixvm.qcow2 (60GB)
-- Management commands: vm-viewer, vm-list, vm-start, vm-stop, vm-kill, vm-restart, vm-info, vm-purge, vm-create
-- nixvm-menu KDE dialog
+- VM management commands
 
-### 3.8 Webcam C920 Config - TODO
+### 3.8 Webcam C920 Config - SKIP
 
-- Systemd service to set MJPEG 1080p@30fps on boot
-- Webcamoid scaled desktop entry (1.5x for HiDPI)
+Working as-is.
 
-### 3.9 Mouse Button Remap (Razer Viper Mini) - TODO
+### 3.9 Mouse Button Remap - SKIP
 
-- Python evdev script
-- BTN_EXTRA: tap = original, hold = Left Control
-- Systemd service: mouse-tap-hold
-- Kernel module: uinput
+Deferred for later.
 
-### 3.10 USB Hub Bluetooth Toggle - TODO
+### 3.10 USB Hub Bluetooth Toggle - DONE
 
-- Udev rules for VIA Labs USB 2.0 Hub (2109:2817)
-- Auto disable BT on hub disconnect, re-enable on reconnect
-- Two systemd oneshot services
+Udev rules in `config/udev/99-usb-hub-bt-toggle.rules`. System services in `config/systemd/`. Scripts `usb-hub-bt-off` and `usb-hub-bt-on` in `config/shell/`. Deployed by `setup.sh`.
 
-### 3.11 Screen Off + DND (Meta+F10) - TODO
+### 3.11 Screen Off + DND (Meta+F10) - DONE
 
-- KWin script for Meta+F10 shortcut
-- Toggles screen off via powerdevil
-- Toggles KDE Do Not Disturb mode
-- Watcher service to restore on wake
+KWin script + user systemd services. `screen-off-toggle` enables DND and turns off screen. `screen-off-watcher` auto-restores notifications on wake. Deployed by `setup.sh` via `config/kwin/setup-kwin-scripts.sh`.
 
-### 3.12 Bluetooth Toggle (Meta+F11) - TODO
+### 3.12 Bluetooth Toggle (Meta+F11) - DONE
 
-- KWin script for Meta+F11 shortcut
-- bt-toggle: power on/off + auto-connect Q30
+KWin script + user systemd service. `bt-toggle` toggles BT on/off with Q30 auto-connect. Deployed by `setup.sh` via `config/kwin/setup-kwin-scripts.sh`.
 
-### 3.13 ChatGPT Quick Input (Meta+F12) - TODO
+### 3.13 ChatGPT Quick Input (Meta+F12) - SKIP
 
-- GTK4/libadwaita popup for text input
-- Routes to dedicated Brave CDP window (port 9222)
-- Injects text via Chrome DevTools Protocol
-- KWin script for Meta+F12
+Not wanted.
 
 ---
 

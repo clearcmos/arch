@@ -1,0 +1,6 @@
+[Unit]
+Description=Turn Bluetooth off on USB hub disconnect
+
+[Service]
+Type=oneshot
+ExecStart=/home/nicholas/.local/bin/usb-hub-bt-off

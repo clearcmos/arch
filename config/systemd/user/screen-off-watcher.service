@@ -1,0 +1,7 @@
+[Unit]
+Description=Watch for screen wake and restore notifications
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/screen-off-watcher
+Restart=no

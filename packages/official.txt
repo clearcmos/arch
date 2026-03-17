@@ -56,6 +56,7 @@ lib32-mesa
 lib32-vulkan-radeon
 libfreeaptx
 libldac
+libnotify
 libva-mesa-driver
 libva-utils
 libvirt

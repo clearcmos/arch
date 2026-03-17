@@ -1,0 +1,6 @@
+[Unit]
+Description=Toggle screen off and mute notifications
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/screen-off-toggle

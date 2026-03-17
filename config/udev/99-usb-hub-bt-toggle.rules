@@ -1,0 +1,4 @@
+# USB hub disconnected - turn BT off
+ACTION=="remove", SUBSYSTEM=="usb", ENV{PRODUCT}=="2109/2817/*", ENV{DEVTYPE}=="usb_device", TAG+="systemd", RUN+="/usr/bin/systemctl start --no-block usb-hub-bt-off.service"
+# USB hub reconnected - turn BT on and connect Q30
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="2109", ATTR{idProduct}=="2817", ENV{DEVTYPE}=="usb_device", TAG+="systemd", RUN+="/usr/bin/systemctl start --no-block usb-hub-bt-on.service"

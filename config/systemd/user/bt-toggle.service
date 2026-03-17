@@ -1,0 +1,6 @@
+[Unit]
+Description=Toggle Bluetooth and connect Q30
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/bt-toggle

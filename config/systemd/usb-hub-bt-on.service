@@ -1,0 +1,6 @@
+[Unit]
+Description=Turn Bluetooth on when USB hub reconnects
+
+[Service]
+Type=oneshot
+ExecStart=/home/nicholas/.local/bin/usb-hub-bt-on
