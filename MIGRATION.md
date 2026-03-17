@@ -14,29 +14,15 @@ All needed packages added to `packages/official.txt` (single source of truth). a
 
 Skipped (not wanted): `cpulimit`, `kitty`, `steam`, `mangohud`, `sunshine`, `moonlight-qt`, `jellyfin-media-player`, `p7zip` (have 7zip), `pkg-config` (have pkgconf), `rust-analyzer` (use rustup), `swtpm`, `heroic-games-launcher-bin` (moved to AUR 1.2).
 
-### 1.2 Missing AUR Packages
+### 1.2 AUR Packages - DONE
 
-| Package | NixOS Module | Purpose |
-|---------|-------------|---------|
-| `vesktop-bin` | desktop/discord | Discord client (Vencord, Wayland-native) |
-| `wowup-cf` | desktop/gaming | WoW addon manager |
-| `heroic-games-launcher-bin` | desktop/gaming | Epic/GOG (check if AUR) |
-| `webcamoid` | desktop/packages | Webcam app |
-| `fooyin` | desktop/packages | Music player |
-| `devilutionx` | desktop/packages | Diablo port |
-| `droidcam` | desktop/packages | Phone as webcam |
-| `woeusb-ng` | desktop/packages | Windows USB creator |
-| `google-cloud-cli` | desktop/packages | GCP/Firebase tools |
+Added `webcamoid`, `fooyin`, `devilutionx`, `google-cloud-cli` to `aur.txt`.
 
-### 1.3 Python Packages Needed
+Skipped (not wanted): `vesktop-bin`, `wowup-cf`, `heroic-games-launcher-bin`, `droidcam`, `woeusb-ng`.
 
-NixOS had several Python environments. Key packages:
-- `requests`, `flask`, `beautifulsoup4`, `selenium`, `aiohttp`, `pydantic` (dev/tools)
-- `fastapi`, `uvicorn`, `sqlalchemy`, `python-multipart`, `bcrypt` (investment-tracker)
-- `firebase-admin`, `google-api-python-client`, `google-auth-oauthlib` (various services)
-- `rich` (timer-cli, google-tasks-tui)
-- `evdev` (mouse-remap)
-- `PyTorch ROCm` (AI/ML stack)
+### 1.3 Python Packages - SKIP
+
+Per-project dependencies. Will be installed in venvs when each service is migrated.
 
 ---
 

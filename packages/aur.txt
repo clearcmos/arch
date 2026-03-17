@@ -2,11 +2,15 @@
 1password-cli
 brave-bin
 curseforge
+devilutionx
+fooyin
 fsearch
 google-chrome
+google-cloud-cli
 localsend-bin
 lutris-world-of-warcraft-dependencies-amd
 ocrmypdf
 slack-desktop
 spotify
 visual-studio-code-bin
+webcamoid
