@@ -132,35 +132,9 @@ Not wanted.
 
 ## 4. Monitors & Scheduled Tasks
 
-### 4.1 CurseForge Comment Notifier - TODO
+### 4.1-4.5 Monitors & Scheduled Tasks - SKIP
 
-- Scrapes CurseForge addon comments with Selenium/Firefox headless
-- Posts to Discord webhook
-- Timer: 08:00 and 19:00 daily
-- State: /var/lib/curseforge-comments
-
-### 4.2 Upstream Issue Monitor - TODO
-
-- Checks GitHub issues for fix signals (e.g., Ollama flash attention on gfx1030)
-- Posts to Discord webhook
-- Timer: 09:00 and 21:00 daily
-- Uses Claude Agent SDK + GitHub PAT
-
-### 4.3 Discord Failure Notify Template - TODO
-
-- Template service: sends Discord webhook on any systemd service failure
-- Reads last 20 journal lines
-- Reusable via OnFailure= on any service
-
-### 4.4 Rebuild/Update Notification - TODO (adapt)
-
-NixOS sent Discord notifications on rebuild with package diff. Arch equivalent could notify on pacman -Syu with package changes.
-
-### 4.5 Lynis Security Audit - TODO
-
-- Monthly automated security scan
-- Reports saved to /var/log/security-scans/lynis
-- Custom profile skipping desktop-irrelevant checks
+All deferred. Documented in `docs/deferred-scheduled-tasks.md`. Most require Discord webhook secrets (migration 9.1).
 
 ---
 
