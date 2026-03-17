@@ -648,6 +648,22 @@ fi
 sudo mkdir -p /opt/docker-compose
 sudo chown nicholas:docker /opt/docker-compose
 
+# --- Libvirt/KVM ---
+
+info "Configuring Libvirt/KVM..."
+for grp in libvirt kvm render; do
+    if ! groups nicholas | grep -q "$grp"; then
+        sudo usermod -aG "$grp" nicholas
+        info "  added nicholas to $grp group."
+    fi
+done
+if systemctl is-enabled libvirtd &>/dev/null; then
+    info "  libvirtd already enabled."
+else
+    sudo systemctl enable --now libvirtd
+    info "  enabled and started libvirtd."
+fi
+
 # --- Cockpit ---
 
 info "Configuring Cockpit..."

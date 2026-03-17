@@ -114,11 +114,9 @@ Deferred for later.
 
 Deferred for later.
 
-### 3.7 Libvirt/KVM Virtualization - TODO
+### 3.7 Libvirt/KVM Virtualization - DONE
 
-- libvirtd service
-- nicholas in libvirtd, kvm, render groups
-- VM management commands
+libvirtd enabled, nicholas added to libvirt/kvm/render groups. Packages already installed (libvirt, virt-manager, qemu-full). VM management commands deferred to when VMs are needed.
 
 ### 3.8 Webcam C920 Config - SKIP
 
