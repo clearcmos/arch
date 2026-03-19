@@ -58,19 +58,17 @@ if [[ -d "$HOME/arch/.git" ]]; then
     scan_repo "$HOME/arch"
 fi
 
-# Scan repos in ~/git/mine and ~/git/forked
-for subdir in mine forked; do
-    if [[ -d "/home/nicholas/git/$subdir" ]]; then
-        for repo in /home/nicholas/git/$subdir/*/; do
-            if [[ -d "$repo/.git" ]]; then
-                cd "$repo"
-                if git remote -v 2>/dev/null | grep -q "clearcmos"; then
-                    scan_repo "$repo"
-                fi
+# Scan repos in ~/git
+if [[ -d "/home/nicholas/git" ]]; then
+    for repo in /home/nicholas/git/*/; do
+        if [[ -d "$repo/.git" ]]; then
+            cd "$repo"
+            if git remote -v 2>/dev/null | grep -q "clearcmos"; then
+                scan_repo "$repo"
             fi
-        done
-    fi
-done
+        fi
+    done
+fi
 
 echo ""
 echo "Scan Summary:"

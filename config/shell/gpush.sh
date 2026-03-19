@@ -24,15 +24,13 @@ echo "Scanning git repositories..."
 repos=()
 
 if [[ "$mode" == "--all" ]]; then
-    for subdir in mine forked; do
-        if [[ -d "/home/nicholas/git/$subdir" ]]; then
-            for dir in /home/nicholas/git/$subdir/*/; do
-                if [[ -d "$dir.git" ]]; then
-                    repos+=("$(realpath "$dir")")
-                fi
-            done
-        fi
-    done
+    if [[ -d "/home/nicholas/git" ]]; then
+        for dir in /home/nicholas/git/*/; do
+            if [[ -d "$dir.git" ]]; then
+                repos+=("$(realpath "$dir")")
+            fi
+        done
+    fi
 else
     if [[ ! -d ".git" ]]; then
         echo "Current directory is not a git repository"

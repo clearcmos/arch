@@ -8,3 +8,12 @@ These apply to all projects.
 - Do not use emojis anywhere - not in code, commits, comments, or documentation.
 - Do not use em dashes. Use regular hyphens instead.
 - Never commit PHI, PII, secrets, credentials, API keys, tokens, or any sensitive data. Always review staged changes for sensitive content before committing.
+
+# Claude Agent SDK
+
+The Agent SDK (`claude-agent-sdk` Python package) spawns the Claude Code CLI as a subprocess. It does not call the Anthropic API directly. This means:
+
+- It inherits CLI authentication (OAuth from `~/.claude/.credentials.json`)
+- No `ANTHROPIC_API_KEY` needed when the CLI is logged in via a Max/Pro plan
+- The Anthropic docs warning about API keys applies to third-party developers distributing products, not personal tooling on your own machine
+- Reference project with working tests: `~/claude-agent-sdk/`

@@ -77,7 +77,25 @@ fi
 
 info "Installing AUR packages..."
 read_packages "$SCRIPT_DIR/packages/aur.txt" \
-    | xargs paru -S --needed --noconfirm
+    | xargs paru -S --needed
+
+# Save installed PKGBUILDs for post-auth audit
+info "Saving AUR PKGBUILDs for audit..."
+PKGBUILD_DIR="$SCRIPT_DIR/pkgbuilds"
+mkdir -p "$PKGBUILD_DIR"
+while IFS= read -r pkg; do
+    [[ -z "$pkg" || "$pkg" == \#* ]] && continue
+    cache_dir="$HOME/.cache/paru/clone/$pkg"
+    if [[ -f "$cache_dir/PKGBUILD" ]]; then
+        mkdir -p "$PKGBUILD_DIR/$pkg"
+        cp "$cache_dir/PKGBUILD" "$PKGBUILD_DIR/$pkg/"
+        # Copy .install files if present
+        for f in "$cache_dir"/*.install; do
+            [[ -f "$f" ]] && cp "$f" "$PKGBUILD_DIR/$pkg/"
+        done
+    fi
+done < <(read_packages "$SCRIPT_DIR/packages/aur.txt")
+info "  saved PKGBUILDs to pkgbuilds/"
 
 # --- Nix (Determinate Systems installer) ---
 
@@ -448,6 +466,9 @@ link_config "$SCRIPT_DIR/config/environment.d/30-ai.conf" "$HOME/.config/environ
 # Brave
 link_config "$SCRIPT_DIR/config/brave/brave-flags.conf" "$HOME/.config/brave-flags.conf"
 
+# paru (AUR helper)
+link_config "$SCRIPT_DIR/config/paru/paru.conf" "$HOME/.config/paru/paru.conf"
+
 # Claude Code
 link_config "$SCRIPT_DIR/config/claude-code/settings.json" "$HOME/.claude/settings.json"
 link_config "$SCRIPT_DIR/config/claude-code/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
@@ -460,7 +481,7 @@ link_config "$SCRIPT_DIR/config/shell/functions.sh" "$HOME/.config/shell/functio
 
 # Shell scripts -> ~/.local/bin/
 mkdir -p "$HOME/.local/bin"
-for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf; do
+for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur; do
     chmod +x "$SCRIPT_DIR/config/shell/${script}.sh"
     ln -sf "$SCRIPT_DIR/config/shell/${script}.sh" "$HOME/.local/bin/$script"
 done
@@ -534,6 +555,24 @@ else
     mkdir -p "$CF_INSTANCE_DIR"
     cp "$SCRIPT_DIR/config/CurseForge/AddonGameInstance.json" "$CF_INSTANCE_FILE"
     info "Seeded CurseForge WoW Retail game instance."
+fi
+
+# --- Discord (skip built-in update nag, let pacman manage it) ---
+
+info "Configuring Discord..."
+DISCORD_SETTINGS="$HOME/.config/discord/settings.json"
+mkdir -p "$(dirname "$DISCORD_SETTINGS")"
+if [[ -f "$DISCORD_SETTINGS" ]]; then
+    if jq -e '.SKIP_HOST_UPDATE == true' "$DISCORD_SETTINGS" &>/dev/null; then
+        info "  SKIP_HOST_UPDATE already set."
+    else
+        jq '. + {"SKIP_HOST_UPDATE": true}' "$DISCORD_SETTINGS" > "$DISCORD_SETTINGS.tmp" \
+            && mv "$DISCORD_SETTINGS.tmp" "$DISCORD_SETTINGS"
+        info "  set SKIP_HOST_UPDATE in Discord settings."
+    fi
+else
+    echo '{"SKIP_HOST_UPDATE": true}' > "$DISCORD_SETTINGS"
+    info "  created Discord settings with SKIP_HOST_UPDATE."
 fi
 
 # --- IPv4 Preference ---

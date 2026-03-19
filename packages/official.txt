@@ -5,6 +5,7 @@ android-tools
 aria2
 ark
 base-devel
+bat
 bind
 bluedevil
 bluez
