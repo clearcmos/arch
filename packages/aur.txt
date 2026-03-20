@@ -14,3 +14,4 @@ slack-desktop
 spotify
 visual-studio-code-bin
 webcamoid
+xremap-kde-bin

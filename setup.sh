@@ -34,6 +34,22 @@ else
     info "  enabled multilib repo."
 fi
 
+# --- Pre-upgrade Safety Check ---
+
+if command -v claude &>/dev/null && claude auth status &>/dev/null 2>&1; then
+    info "Running pre-upgrade safety check..."
+    if ! "$SCRIPT_DIR/tools/check-updates.sh" --auto; then
+        error "Pre-upgrade check flagged issues. Review above."
+        read -r -p "Continue anyway? [y/N] " force_upgrade
+        if [[ ! "$force_upgrade" =~ ^[Yy]$ ]]; then
+            error "Upgrade aborted."
+            exit 1
+        fi
+    fi
+else
+    info "Claude not available - skipping pre-upgrade analysis."
+fi
+
 # --- System Update ---
 
 info "Updating system..."
@@ -120,6 +136,15 @@ else
         info "  added ~/.local/bin to PATH in ~/.bashrc"
     fi
     export PATH="$HOME/.local/bin:$PATH"
+fi
+
+# --- uv tools ---
+
+if uv tool list 2>/dev/null | grep -q '^instawow '; then
+    info "instawow already installed, skipping."
+else
+    info "Installing instawow..."
+    uv tool install instawow
 fi
 
 # --- Enable Services ---
@@ -469,9 +494,25 @@ link_config "$SCRIPT_DIR/config/brave/brave-flags.conf" "$HOME/.config/brave-fla
 # paru (AUR helper)
 link_config "$SCRIPT_DIR/config/paru/paru.conf" "$HOME/.config/paru/paru.conf"
 
+# xremap (per-app key remapping - arrow keys for Konsole tab switching)
+link_config "$SCRIPT_DIR/config/xremap/config.yml" "$HOME/.config/xremap/config.yml"
+copy_config "$SCRIPT_DIR/config/xremap/xremap.service" "$HOME/.config/systemd/user/xremap.service"
+if ! systemctl --user is-enabled xremap.service &>/dev/null; then
+    systemctl --user daemon-reload
+    systemctl --user enable --now xremap.service
+    info "  enabled and started xremap service."
+else
+    systemctl --user daemon-reload
+    systemctl --user restart xremap.service
+    info "  restarted xremap service."
+fi
+
 # Claude Code
 link_config "$SCRIPT_DIR/config/claude-code/settings.json" "$HOME/.claude/settings.json"
 link_config "$SCRIPT_DIR/config/claude-code/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+
+# Instawow
+link_config "$SCRIPT_DIR/config/instawow/profiles/__default__/config.json" "$HOME/.config/instawow/profiles/__default__/config.json"
 
 # Shell aliases
 link_config "$SCRIPT_DIR/config/shell/aliases.sh" "$HOME/.config/shell/aliases.sh"
@@ -479,9 +520,12 @@ link_config "$SCRIPT_DIR/config/shell/aliases.sh" "$HOME/.config/shell/aliases.s
 # Shell functions
 link_config "$SCRIPT_DIR/config/shell/functions.sh" "$HOME/.config/shell/functions.sh"
 
+# 1Password secret references
+link_config "$SCRIPT_DIR/config/op/secrets.env" "$HOME/.config/op/secrets.env"
+
 # Shell scripts -> ~/.local/bin/
 mkdir -p "$HOME/.local/bin"
-for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur; do
+for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur check-upgrades-hook; do
     chmod +x "$SCRIPT_DIR/config/shell/${script}.sh"
     ln -sf "$SCRIPT_DIR/config/shell/${script}.sh" "$HOME/.local/bin/$script"
 done
@@ -504,6 +548,15 @@ fi
 sudo cp "$SCRIPT_DIR/config/greetd/config.toml" /etc/greetd/config.toml
 sudo cp "$SCRIPT_DIR/config/greetd/pam-greetd" /etc/pam.d/greetd
 info "  deployed greetd config and PAM (KWallet auto-unlock)."
+
+# Pacman pre-upgrade safety check hook
+sudo mkdir -p /etc/pacman.d/hooks
+if ! diff -q "$SCRIPT_DIR/config/pacman/check-upgrades.hook" /etc/pacman.d/hooks/check-upgrades.hook &>/dev/null; then
+    sudo cp "$SCRIPT_DIR/config/pacman/check-upgrades.hook" /etc/pacman.d/hooks/check-upgrades.hook
+    info "  deployed pacman pre-upgrade hook."
+else
+    info "  pacman pre-upgrade hook already up to date."
+fi
 
 # Quiet console (suppress noisy kernel messages on greetd TTY)
 sudo cp "$SCRIPT_DIR/config/sysctl/99-quiet-console.conf" /etc/sysctl.d/99-quiet-console.conf

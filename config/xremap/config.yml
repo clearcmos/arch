@@ -1,0 +1,9 @@
+keymap:
+  - name: Konsole tab switching with bare arrow keys
+    application:
+      only: org.kde.konsole
+    remap:
+      Left: Shift-Left
+      Right: Shift-Right
+      Shift-Left: Left
+      Shift-Right: Right
