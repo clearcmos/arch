@@ -490,6 +490,13 @@ link_config "$SCRIPT_DIR/config/environment.d/30-ai.conf" "$HOME/.config/environ
 
 # Brave
 link_config "$SCRIPT_DIR/config/brave/brave-flags.conf" "$HOME/.config/brave-flags.conf"
+if ! diff -q "$SCRIPT_DIR/config/brave/policies/policies.json" /etc/brave/policies/managed/policies.json &>/dev/null; then
+    sudo mkdir -p /etc/brave/policies/managed
+    sudo cp "$SCRIPT_DIR/config/brave/policies/policies.json" /etc/brave/policies/managed/policies.json
+    info "  copied Brave policies to /etc/brave/policies/managed/"
+else
+    info "  Brave policies already up to date."
+fi
 
 # Web apps (Brave PWAs)
 link_config "$SCRIPT_DIR/config/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop" "$HOME/.local/share/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop"
@@ -528,7 +535,7 @@ link_config "$SCRIPT_DIR/config/op/secrets.env" "$HOME/.config/op/secrets.env"
 
 # Shell scripts -> ~/.local/bin/
 mkdir -p "$HOME/.local/bin"
-for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur check-upgrades-hook; do
+for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur check-upgrades-hook brave-reload-ext; do
     chmod +x "$SCRIPT_DIR/config/shell/${script}.sh"
     ln -sf "$SCRIPT_DIR/config/shell/${script}.sh" "$HOME/.local/bin/$script"
 done

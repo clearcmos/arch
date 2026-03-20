@@ -1,0 +1,57 @@
+{
+  "BrowserSignin": 0,
+  "SyncDisabled": true,
+  "PasswordManagerEnabled": false,
+  "AutofillAddressEnabled": false,
+  "AutofillCreditCardEnabled": false,
+  "DefaultBrowserSettingEnabled": true,
+  "MetricsReportingEnabled": false,
+  "SearchSuggestEnabled": false,
+  "SpellcheckEnabled": true,
+  "SpellcheckLanguage": ["en-US", "en-CA", "fr"],
+  "RestoreOnStartup": 1,
+
+  "DefaultSearchProviderEnabled": true,
+  "DefaultSearchProviderName": "Google",
+  "DefaultSearchProviderSearchURL": "https://www.google.com/search?q={searchTerms}",
+  "DefaultSearchProviderSuggestURL": "https://www.google.com/complete/search?output=chrome&q={searchTerms}",
+  "DefaultSearchProviderIconURL": "https://www.google.com/favicon.ico",
+  "DefaultSearchProviderKeyword": "google",
+
+  "BraveRewardsDisabled": true,
+  "BraveTodayDisabled": true,
+  "BraveAdblockEnabled": true,
+
+  "ExtensionSettings": {
+    "aeblfdkhhhdcdjpifhhbdiojplfjncoa": {
+      "_name": "1Password",
+      "installation_mode": "normal_installed",
+      "update_url": "https://clients2.google.com/service/update2/crx"
+    },
+    "cjpalhdlnbpafiamejdnhcphjbkeiagm": {
+      "_name": "uBlock Origin",
+      "installation_mode": "normal_installed",
+      "update_url": "https://clients2.google.com/service/update2/crx"
+    },
+    "mmioliijnhnoblpgimnlajmefafdfilb": {
+      "_name": "Shazam",
+      "installation_mode": "normal_installed",
+      "update_url": "https://clients2.google.com/service/update2/crx"
+    },
+    "mlifbfmeoafhcccmppaolojdglcbkdkg": {
+      "_name": "TTV AB - Twitch ad blocker",
+      "installation_mode": "normal_installed",
+      "update_url": "https://clients2.google.com/service/update2/crx"
+    },
+    "jcokdfogijmigonkhckmhldgofjmfdak": {
+      "_name": "Close All Tabs",
+      "installation_mode": "normal_installed",
+      "update_url": "https://clients2.google.com/service/update2/crx"
+    },
+    "mmpokgfcmbkfdeibafoafkiijdbfblfg": {
+      "_name": "Merge Windows",
+      "installation_mode": "normal_installed",
+      "update_url": "https://clients2.google.com/service/update2/crx"
+    }
+  }
+}
