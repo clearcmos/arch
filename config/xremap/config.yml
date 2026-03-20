@@ -7,3 +7,12 @@ keymap:
       Right: Shift-Right
       Shift-Left: Left
       Shift-Right: Right
+
+  - name: Brave tab switching with bare arrow keys
+    application:
+      only: brave-browser
+    remap:
+      Left: Ctrl-Shift-Tab
+      Right: Ctrl-Tab
+      Shift-Left: Left
+      Shift-Right: Right

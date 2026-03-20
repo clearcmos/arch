@@ -491,6 +491,9 @@ link_config "$SCRIPT_DIR/config/environment.d/30-ai.conf" "$HOME/.config/environ
 # Brave
 link_config "$SCRIPT_DIR/config/brave/brave-flags.conf" "$HOME/.config/brave-flags.conf"
 
+# Web apps (Brave PWAs)
+link_config "$SCRIPT_DIR/config/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop" "$HOME/.local/share/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop"
+
 # paru (AUR helper)
 link_config "$SCRIPT_DIR/config/paru/paru.conf" "$HOME/.config/paru/paru.conf"
 
