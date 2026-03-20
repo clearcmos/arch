@@ -1,5 +1,10 @@
 # Shell functions
 
+# Instawow wrapper - injects secrets from 1Password via op run
+instawow() {
+    op run --no-masking --env-file="$HOME/.config/op/secrets.env" -- instawow "$@"
+}
+
 claim-files() {
     local files
     files=$(find . -user root -group root -print)

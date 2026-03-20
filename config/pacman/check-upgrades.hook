@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Upgrade
+Operation = Install
+Type = Package
+Target = *
+
+[Action]
+Description = Running pre-upgrade safety check...
+When = PreTransaction
+Exec = /home/nicholas/.local/bin/check-upgrades-hook
+AbortOnFail

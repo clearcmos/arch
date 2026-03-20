@@ -124,6 +124,7 @@ tumbler
 unrar
 unzip
 usbutils
+uv
 v4l-utils
 virt-manager
 virt-viewer

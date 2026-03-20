@@ -67,31 +67,64 @@ CACHE_DIR="$HOME/.cache/audit-pkgbuild"
 mkdir -p "$CACHE_DIR"
 
 # Hash all auditable files in the package directory
-HASH_INPUT=$(cat "$PKGBUILD" && for f in "$PKG_DIR"/*.install; do [[ -f "$f" ]] && cat "$f"; done)
+HASH_INPUT=$(cat "$PKGBUILD"; for f in "$PKG_DIR"/*.install; do [[ -f "$f" ]] && cat "$f" || true; done)
 PKG_HASH=$(echo "$HASH_INPUT" | sha256sum | cut -d' ' -f1)
 PKG_NAME="${PKGBASE:-$(basename "$PKG_DIR")}"
 CACHE_FILE="$CACHE_DIR/$PKG_NAME.json"
+
+# Format and display verdict JSON as markdown (via glow if available)
+render_verdict() {
+    local json="$1"
+    local cached="${2:-false}"
+    local verdict summary sources
+    verdict=$(echo "$json" | jq -r '.verdict // empty' 2>/dev/null)
+    summary=$(echo "$json" | jq -r '.summary // empty' 2>/dev/null)
+    sources=$(echo "$json" | jq -r '.sources_verified // empty' 2>/dev/null)
+
+    [[ -z "$verdict" ]] && return 1
+
+    local md=""
+    local header="PKGBUILD Audit"
+    [[ "$cached" == "true" ]] && header="PKGBUILD Audit (cached)"
+
+    md="# $header"$'\n\n'
+    md+="| | |"$'\n'
+    md+="|---|---|"$'\n'
+    md+="| **Verdict** | **${verdict}** |"$'\n'
+    md+="| **Summary** | ${summary} |"$'\n'
+    md+="| **Sources verified** | ${sources} |"$'\n'
+
+    local finding_count
+    finding_count=$(echo "$json" | jq '.findings | length' 2>/dev/null)
+    if [[ "$finding_count" -gt 0 ]]; then
+        md+=$'\n'"## Findings"$'\n\n'
+        while IFS= read -r line; do
+            md+="$line"$'\n'
+        done < <(echo "$json" | jq -r '.findings[] |
+            if .severity == "critical" then "- **CRITICAL:** \(.description)"
+            elif .severity == "warning" then "- **WARNING:** \(.description)"
+            else "- \(.description)"
+            end' 2>/dev/null)
+    fi
+
+    if command -v glow &>/dev/null; then
+        echo "$md" | glow -
+    else
+        echo "$md"
+    fi
+}
 
 if [[ -f "$CACHE_FILE" ]]; then
     CACHED_HASH=$(jq -r '.hash // empty' "$CACHE_FILE" 2>/dev/null)
     if [[ "$CACHED_HASH" == "$PKG_HASH" ]]; then
         CACHED_VERDICT=$(jq -r '.verdict // empty' "$CACHE_FILE" 2>/dev/null)
-        CACHED_SUMMARY=$(jq -r '.summary // empty' "$CACHE_FILE" 2>/dev/null)
-        case "$CACHED_VERDICT" in
-            PASS) VCOLOR="\033[0;32m" ;;
-            WARN) VCOLOR="\033[1;33m" ;;
-            FAIL) VCOLOR="\033[0;31m" ;;
-            *)    VCOLOR="\033[0m" ;;
-        esac
         echo ""
-        echo -e "\033[0;36m[AUDIT]\033[0m Cached result (PKGBUILD unchanged)"
-        echo -e "  Verdict:          ${VCOLOR}${CACHED_VERDICT}\033[0m"
-        echo -e "  Summary:          $CACHED_SUMMARY"
-        echo ""
+        render_verdict "$(cat "$CACHE_FILE")" true
         if [[ "$CACHED_VERDICT" == "FAIL" ]]; then
-            echo -e "\033[0;31m[AUDIT] Build aborted - PKGBUILD failed security audit.\033[0m"
+            echo -e "\033[0;31m[AUDIT] Build aborted - package failed audit.\033[0m"
             exit 1
         fi
+        read -r -p "Press Enter to continue..." < /dev/tty
         exit 0
     fi
 fi
@@ -103,9 +136,11 @@ for f in "$PKG_DIR"/*.install; do
     content+=$'\n\n--- '"$(basename "$f")"$' ---\n'"$(cat "$f")"
 done
 
-SYSTEM_PROMPT='You are a security auditor for Arch Linux AUR PKGBUILDs. Analyze the PKGBUILD (and any .install files) for malicious or suspicious content.
+SYSTEM_PROMPT='You are a security and stability auditor for Arch Linux AUR PKGBUILDs. Analyze the PKGBUILD (and any .install files) for both malicious content AND potential system stability impact.
 
-Check for:
+TARGET SYSTEM: AMD RX 6800 XT (mesa/RADV, RDNA2), Intel i7-13700K, KDE Plasma 6 on Wayland, KWin, PipeWire, greetd/tuigreet, Wine/Lutris, Docker, libvirt/KVM, Bluetooth (bluez + PipeWire).
+
+SECURITY - check for:
 1. Source URLs - do they point to official/expected upstream locations?
 2. Integrity checks - are sha256sums/b2sums present and not SKIP?
 3. Fetch-and-execute patterns (curl|bash, wget|sh)
@@ -117,16 +152,16 @@ Check for:
 9. Unusual or unnecessary dependencies
 10. Commands that modify files outside the package directory
 
-IMPORTANT: For ANY finding that is warning or critical severity, you MUST verify it before issuing your verdict. Use web search to:
-- Check the upstream project documentation for whether the behavior is expected
-- Search the AUR package page and comments for known issues or user reports
-- Search for any recent security advisories or incidents involving this package
-- Verify that source URLs match the official project distribution channels
-- Check if SUID/SGID bits, eval usage, or network calls are documented upstream behavior
+STABILITY - check for:
+1. Conflicts with or replacement of core system packages (mesa, KDE, PipeWire, systemd, kernel)
+2. Kernel modules, systemd services, or udev rules that could affect boot or hardware
+3. System-wide config changes (Xorg, Wayland, audio, network)
+4. Known incompatibilities with the target hardware or software stack
+5. Input/device grabbing that could interfere with gaming or desktop
 
-Only issue WARN if you have verified the behavior is documented/expected upstream.
-Only issue FAIL if the behavior is unexplained, undocumented, or clearly malicious.
-A finding you cannot verify against upstream documentation should be treated as more suspicious.
+Issue PASS if both security and stability are fine.
+Issue WARN for non-critical concerns (document what and why).
+Issue FAIL for clearly malicious code or high likelihood of breaking the system.
 
 Be concise. Focus on actionable findings only.'
 
@@ -189,30 +224,9 @@ if [[ -z "$VERDICT" ]]; then
     exit 0
 fi
 
-# Color the verdict
-case "$VERDICT" in
-    PASS) VCOLOR="\033[0;32m" ;;
-    WARN) VCOLOR="\033[1;33m" ;;
-    FAIL) VCOLOR="\033[0;31m" ;;
-    *)    VCOLOR="\033[0m" ;;
-esac
+render_verdict "$AUDIT_JSON"
 
-echo -e "  Verdict:          ${VCOLOR}${VERDICT}\033[0m"
-echo -e "  Summary:          $SUMMARY"
-echo -e "  Sources verified: $SOURCES"
-
-# Show findings
-FINDING_COUNT=$(echo "$AUDIT_JSON" | jq '.findings | length' 2>/dev/null)
-if [[ "$FINDING_COUNT" -gt 0 ]]; then
-    echo ""
-    echo "$AUDIT_JSON" | jq -r '.findings[] |
-        if .severity == "critical" then "  \u001b[0;31m[critical]\u001b[0m \(.description)"
-        elif .severity == "warning" then "  \u001b[1;33m[warning]\u001b[0m \(.description)"
-        else "  \u001b[0;36m[info]\u001b[0m \(.description)"
-        end' 2>/dev/null
-fi
-
-echo ""
+read -r -p "Press Enter to continue..." < /dev/tty
 
 # Cache the result
 jq -n --arg hash "$PKG_HASH" --arg verdict "$VERDICT" --arg summary "$SUMMARY" \
