@@ -505,6 +505,13 @@ link_config "$SCRIPT_DIR/config/applications/brave-okhfeehhillipaleckndoboggdkce
 link_config "$SCRIPT_DIR/config/paru/paru.conf" "$HOME/.config/paru/paru.conf"
 
 # xremap (per-app key remapping - arrow keys for Konsole tab switching)
+if ! diff -q "$SCRIPT_DIR/config/udev/99-xremap.rules" /etc/udev/rules.d/99-xremap.rules &>/dev/null; then
+    sudo cp "$SCRIPT_DIR/config/udev/99-xremap.rules" /etc/udev/rules.d/99-xremap.rules
+    sudo udevadm control --reload-rules
+    info "  copied xremap udev rules."
+else
+    info "  xremap udev rules already up to date."
+fi
 link_config "$SCRIPT_DIR/config/xremap/config.yml" "$HOME/.config/xremap/config.yml"
 copy_config "$SCRIPT_DIR/config/xremap/xremap.service" "$HOME/.config/systemd/user/xremap.service"
 if ! systemctl --user is-enabled xremap.service &>/dev/null; then
@@ -535,7 +542,7 @@ link_config "$SCRIPT_DIR/config/op/secrets.env" "$HOME/.config/op/secrets.env"
 
 # Shell scripts -> ~/.local/bin/
 mkdir -p "$HOME/.local/bin"
-for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur check-upgrades-hook brave-reload-ext; do
+for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur check-upgrades-hook brave-reload-ext remove-pkg; do
     chmod +x "$SCRIPT_DIR/config/shell/${script}.sh"
     ln -sf "$SCRIPT_DIR/config/shell/${script}.sh" "$HOME/.local/bin/$script"
 done
