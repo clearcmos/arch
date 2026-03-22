@@ -1,0 +1,3 @@
+# Addon folders to skip during instawow reconcile.
+# One folder name per line.
+# ExampleAddon

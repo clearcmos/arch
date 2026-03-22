@@ -1,0 +1,28 @@
+#!/bin/bash
+set -euo pipefail
+
+HOSTS=(jimmich misc)
+
+if [[ $# -ne 1 ]]; then
+    echo "Usage: nix-deploy <host>"
+    echo "Hosts: ${HOSTS[*]}"
+    exit 1
+fi
+
+host="$1"
+
+found=false
+for h in "${HOSTS[@]}"; do
+    if [[ "$h" == "$host" ]]; then
+        found=true
+        break
+    fi
+done
+
+if ! $found; then
+    echo "Unknown host: $host"
+    echo "Hosts: ${HOSTS[*]}"
+    exit 1
+fi
+
+cd ~/git/nixos && nixos-rebuild switch --flake ".#$host" --target-host "root@$host.home.arpa"

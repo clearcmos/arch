@@ -110,6 +110,9 @@ check "$REPO_DIR/config/systemd/user/screen-off-toggle.service" "$HOME/.config/s
 check "$REPO_DIR/config/systemd/user/screen-off-watcher.service" "$HOME/.config/systemd/user/screen-off-watcher.service"
 check "$REPO_DIR/config/systemd/user/bt-toggle.service" "$HOME/.config/systemd/user/bt-toggle.service"
 
+# SSH (copied)
+check "$REPO_DIR/config/ssh/authorized_keys" "$HOME/.ssh/authorized_keys"
+
 # System configs under /etc/ (copied, require root)
 check "$REPO_DIR/config/fontconfig/local.conf" "/etc/fonts/local.conf"
 check "$REPO_DIR/config/ssh/sshd_config" "/etc/ssh/sshd_config"

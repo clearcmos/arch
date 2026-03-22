@@ -7,3 +7,5 @@ keymap:
       Right: Shift-Right
       Shift-Left: Left
       Shift-Right: Right
+      C-w: C-Shift-w
+      C-BackSpace: C-w

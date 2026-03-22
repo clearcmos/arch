@@ -57,6 +57,16 @@ SSH keys are encrypted with `age` + `age-plugin-yubikey` and stored on the NAS a
 - When adding new config files, add them to `setup.sh` using `copy_config` for KDE files or `link_config` for everything else.
 - Do not update CLAUDE.md or setup.sh when making config/system changes until the changes are tested and confirmed working by the user.
 
+## check-drift (tools/check-drift.sh)
+
+Detects when deployed config copies have diverged from the repo. Only **copied** configs need drift checking - symlinked configs point directly to the repo and cannot drift.
+
+- When adding a new `copy_config` deployment or `sudo cp` to setup.sh, add a matching `check` line to `tools/check-drift.sh`.
+- Do NOT add entries for `link_config` deployments (symlinks don't drift).
+- Do NOT add entries for configs that are routinely modified by their application at runtime (e.g. Lutris game configs, CurseForge). Drift checking those would just produce noise.
+- Configs that are only read from the repo at runtime (e.g. `config/age/yubikey-identity.txt`) or only used by the installer (e.g. `config/autostart/first-login.desktop`) are not deployed by setup.sh and do not need drift entries.
+- Scripts that are executed by setup.sh rather than deployed (e.g. `config/kwin/setup-kwin-scripts.sh`) also do not need drift entries.
+
 ## Key Conventions
 
 - All idempotency must be preserved when modifying `setup.sh` - never add operations that fail or duplicate on re-run.

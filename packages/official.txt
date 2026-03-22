@@ -144,3 +144,7 @@ xdotool
 yt-dlp
 yubikey-manager
 zip
+zsh
+zsh-autocomplete
+zsh-autosuggestions
+zsh-syntax-highlighting

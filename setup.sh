@@ -113,6 +113,30 @@ while IFS= read -r pkg; do
 done < <(read_packages "$SCRIPT_DIR/packages/aur.txt")
 info "  saved PKGBUILDs to pkgbuilds/"
 
+# --- Lite XL (custom fork with fractional scaling) ---
+
+if pacman -Q lite-xl-custom &>/dev/null; then
+    info "lite-xl-custom already installed, skipping."
+else
+    info "Building lite-xl-custom from fork..."
+    _tmp=$(mktemp -d)
+    git clone https://github.com/clearcmos/lite-xl.git "$_tmp/lite-xl-custom"
+    (cd "$_tmp/lite-xl-custom" && makepkg -si --noconfirm)
+    rm -rf "$_tmp"
+fi
+
+# --- foot (custom fork with tabs) ---
+
+if pacman -Q foot-custom &>/dev/null; then
+    info "foot-custom already installed, skipping."
+else
+    info "Building foot-custom from fork..."
+    _tmp=$(mktemp -d)
+    git clone https://github.com/clearcmos/foot.git "$_tmp/foot-custom"
+    (cd "$_tmp/foot-custom" && makepkg -si --noconfirm)
+    rm -rf "$_tmp"
+fi
+
 # --- Nix (Determinate Systems installer) ---
 
 if [[ -f /nix/receipt.json ]]; then
@@ -138,13 +162,23 @@ else
     export PATH="$HOME/.local/bin:$PATH"
 fi
 
+# --- depot_tools (Chromium build tools) ---
+
+if grep -q 'depot_tools' "$HOME/.bashrc" 2>/dev/null; then
+    info "depot_tools already in PATH, skipping."
+else
+    echo 'export PATH="$HOME/git/depot_tools:$PATH"' >> "$HOME/.bashrc"
+    info "  added ~/git/depot_tools to PATH in ~/.bashrc"
+fi
+export PATH="$HOME/git/depot_tools:$PATH"
+
 # --- uv tools ---
 
 if uv tool list 2>/dev/null | grep -q '^instawow '; then
     info "instawow already installed, skipping."
 else
-    info "Installing instawow..."
-    uv tool install instawow
+    info "Installing instawow (fork with ignore list)..."
+    uv tool install git+https://github.com/clearcmos/instawow.git
 fi
 
 # --- Enable Services ---
@@ -481,12 +515,19 @@ link_config "$SCRIPT_DIR/config/wireplumber/51-bluez-config.conf" "$HOME/.config
 
 # Bluetooth auto-connect on login
 link_config "$SCRIPT_DIR/config/autostart/bluetooth.desktop" "$HOME/.config/autostart/bluetooth.desktop"
+link_config "$SCRIPT_DIR/config/autostart/monitors.desktop" "$HOME/.config/autostart/monitors.desktop"
 
 # Environment variables (AMD GPU, Wayland)
 link_config "$SCRIPT_DIR/config/environment.d/10-amd-gpu.conf" "$HOME/.config/environment.d/10-amd-gpu.conf"
 link_config "$SCRIPT_DIR/config/environment.d/10-wayland.conf" "$HOME/.config/environment.d/10-wayland.conf"
 link_config "$SCRIPT_DIR/config/environment.d/20-gaming.conf" "$HOME/.config/environment.d/20-gaming.conf"
 link_config "$SCRIPT_DIR/config/environment.d/30-ai.conf" "$HOME/.config/environment.d/30-ai.conf"
+
+# Foot terminal
+link_config "$SCRIPT_DIR/config/foot/foot.ini" "$HOME/.config/foot/foot.ini"
+
+# GameMode (AMD GPU performance)
+link_config "$SCRIPT_DIR/config/gamemode.ini" "$HOME/.config/gamemode.ini"
 
 # Brave
 link_config "$SCRIPT_DIR/config/brave/brave-flags.conf" "$HOME/.config/brave-flags.conf"
@@ -500,6 +541,12 @@ fi
 
 # Web apps (Brave PWAs)
 link_config "$SCRIPT_DIR/config/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop" "$HOME/.local/share/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop"
+link_config "$SCRIPT_DIR/config/applications/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.desktop" "$HOME/.local/share/applications/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.desktop"
+for size in 32x32 48x48 128x128 256x256; do
+    link_config "$SCRIPT_DIR/config/icons/hicolor/$size/apps/brave-okhfeehhillipaleckndoboggdkcebmo-Default.png" "$HOME/.local/share/icons/hicolor/$size/apps/brave-okhfeehhillipaleckndoboggdkcebmo-Default.png"
+    link_config "$SCRIPT_DIR/config/icons/hicolor/$size/apps/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.png" "$HOME/.local/share/icons/hicolor/$size/apps/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.png"
+done
+link_config "$SCRIPT_DIR/config/icons/hicolor/512x512/apps/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.png" "$HOME/.local/share/icons/hicolor/512x512/apps/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.png"
 
 # paru (AUR helper)
 link_config "$SCRIPT_DIR/config/paru/paru.conf" "$HOME/.config/paru/paru.conf"
@@ -524,12 +571,16 @@ else
     info "  restarted xremap service."
 fi
 
+# Zsh
+link_config "$SCRIPT_DIR/config/zsh/.zshrc" "$HOME/.zshrc"
+
 # Claude Code
 link_config "$SCRIPT_DIR/config/claude-code/settings.json" "$HOME/.claude/settings.json"
 link_config "$SCRIPT_DIR/config/claude-code/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
 
 # Instawow
 link_config "$SCRIPT_DIR/config/instawow/profiles/__default__/config.json" "$HOME/.config/instawow/profiles/__default__/config.json"
+link_config "$SCRIPT_DIR/config/instawow/profiles/__default__/ignore.txt" "$HOME/.config/instawow/profiles/__default__/ignore.txt"
 
 # Shell aliases
 link_config "$SCRIPT_DIR/config/shell/aliases.sh" "$HOME/.config/shell/aliases.sh"
@@ -537,16 +588,38 @@ link_config "$SCRIPT_DIR/config/shell/aliases.sh" "$HOME/.config/shell/aliases.s
 # Shell functions
 link_config "$SCRIPT_DIR/config/shell/functions.sh" "$HOME/.config/shell/functions.sh"
 
+# Lite XL
+mkdir -p "$HOME/.config/lite-xl/plugins"
+link_config "$SCRIPT_DIR/config/lite-xl/init.lua" "$HOME/.config/lite-xl/init.lua"
+link_config "$SCRIPT_DIR/config/lite-xl/plugins/language_yaml.lua" "$HOME/.config/lite-xl/plugins/language_yaml.lua"
+
 # 1Password secret references
 link_config "$SCRIPT_DIR/config/op/secrets.env" "$HOME/.config/op/secrets.env"
 
 # Shell scripts -> ~/.local/bin/
 mkdir -p "$HOME/.local/bin"
-for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur check-upgrades-hook brave-reload-ext remove-pkg; do
+for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur check-upgrades-hook brave-reload-ext remove-pkg article2md article2pdf; do
     chmod +x "$SCRIPT_DIR/config/shell/${script}.sh"
     ln -sf "$SCRIPT_DIR/config/shell/${script}.sh" "$HOME/.local/bin/$script"
 done
 info "  linked shell scripts to ~/.local/bin/"
+
+# Standalone bin scripts -> ~/.local/bin/
+for script in "$SCRIPT_DIR"/bin/*; do
+    [[ -f "$script" ]] || continue
+    chmod +x "$script"
+    ln -sf "$script" "$HOME/.local/bin/$(basename "$script")"
+done
+info "  linked bin/ scripts to ~/.local/bin/"
+
+# Set zsh as default shell
+if [[ "$(getent passwd nicholas | cut -d: -f7)" != "/usr/bin/zsh" ]]; then
+    info "Setting zsh as default shell..."
+    chsh -s /usr/bin/zsh
+    info "  default shell changed to zsh (takes effect on next login)."
+else
+    info "  zsh already set as default shell."
+fi
 
 # Source aliases and functions from bashrc if not already present
 if ! grep -q 'shell/aliases.sh' "$HOME/.bashrc" 2>/dev/null; then
@@ -589,10 +662,6 @@ else
     info "  i2c-dev module already configured."
 fi
 
-# Brave policies (system-wide, needs root)
-sudo mkdir -p /etc/brave/policies/managed
-sudo cp "$SCRIPT_DIR/config/brave/policies.json" /etc/brave/policies/managed/policies.json
-info "  copied Brave policies to /etc/brave/policies/managed/"
 
 # --- Lutris (Battle.net config) ---
 

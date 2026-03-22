@@ -4,14 +4,10 @@ RightButton;NoModifier=org.kde.contextmenu
 [ActionPlugins][1]
 RightButton;NoModifier=org.kde.contextmenu
 
-[Containments][31]
-ItemGeometries-1108x1969=
+[Containments][34]
 ItemGeometries-1707x960=
-ItemGeometries-2560x1440=
-ItemGeometries-960x1707=
 ItemGeometriesHorizontal=
-ItemGeometriesVertical=
-activityId=c8c8f4a0-79ce-4530-b7e7-8603c5a54cbc
+activityId=00504fb1-82cf-478a-a47c-26b62dafa416
 formfactor=0
 immutability=1
 lastScreen=0
@@ -19,8 +15,8 @@ location=0
 plugin=org.kde.plasma.folder
 wallpaperplugin=org.kde.image
 
-[Containments][32]
-activityId=c8c8f4a0-79ce-4530-b7e7-8603c5a54cbc
+[Containments][35]
+activityId=00504fb1-82cf-478a-a47c-26b62dafa416
 formfactor=0
 immutability=1
 lastScreen=1
@@ -28,8 +24,8 @@ location=0
 plugin=org.kde.plasma.folder
 wallpaperplugin=org.kde.image
 
-[Containments][33]
-activityId=c8c8f4a0-79ce-4530-b7e7-8603c5a54cbc
+[Containments][36]
+activityId=00504fb1-82cf-478a-a47c-26b62dafa416
 formfactor=0
 immutability=1
 lastScreen=2
@@ -85,7 +81,7 @@ immutability=1
 plugin=org.kde.plasma.icontasks
 
 [Containments][4][Applets][7][Configuration][General]
-launchers=applications:brave-browser.desktop,applications:org.kde.dolphin.desktop,applications:org.kde.konsole.desktop
+launchers=applications:brave-browser.desktop,applications:org.kde.konsole.desktop,applications:org.kde.dolphin.desktop
 
 [Containments][4][Applets][9]
 activityId=

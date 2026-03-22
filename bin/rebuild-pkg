@@ -1,0 +1,45 @@
+#!/bin/bash
+set -euo pipefail
+
+GITHUB_USER="clearcmos"
+
+# Find repos in ~/git that have a PKGBUILD and a remote pointing to our GitHub
+mapfile -t pkgs < <(
+    for d in ~/git/*/; do
+        [[ -f "$d/PKGBUILD" ]] || continue
+        git -C "$d" remote -v 2>/dev/null | grep -q "github.com[:/]$GITHUB_USER/" && basename "$d"
+    done
+)
+
+if [[ ${#pkgs[@]} -eq 0 ]]; then
+    echo "No forked repos with PKGBUILD found in ~/git/"
+    exit 1
+fi
+
+echo "Available packages:"
+for i in "${!pkgs[@]}"; do
+    printf "  %d) %s\n" $((i + 1)) "${pkgs[$i]}"
+done
+echo ""
+read -rp "Select package (1-${#pkgs[@]}): " choice
+
+if [[ ! "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#pkgs[@]} )); then
+    echo "Invalid selection."
+    exit 1
+fi
+
+pkg="${pkgs[$((choice - 1))]}"
+pkgdir="$HOME/git/$pkg"
+
+# Find the remote URL pointing to our fork
+url=$(git -C "$pkgdir" remote -v | grep "github.com[:/]$GITHUB_USER/" | head -1 | awk '{print $2}')
+
+echo "==> Rebuilding $pkg from $url"
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+git clone "$url" "$tmpdir/$pkg"
+(cd "$tmpdir/$pkg" && makepkg -si)
+
+echo "==> $pkg installed successfully"
