@@ -1,10 +1,13 @@
 1password
 1password-cli
 brave-bin
+brother-dcp7060d
+brscan4
 curseforge
 devilutionx
 fooyin
 fsearch
+fzf-tab-git
 google-chrome
 google-cloud-cli
 localsend-bin

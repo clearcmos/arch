@@ -1,5 +1,13 @@
 # Shell functions
 
+# nano wrapper - switches xremap to nano mode so Ctrl+W passes through as
+# nano search instead of closing the Konsole tab
+nano() {
+    ydotool key 190:1 190:0  # F20 -> set_mode: nano
+    command nano "$@"
+    ydotool key 189:1 189:0  # F19 -> set_mode: default
+}
+
 # Instawow wrapper - injects secrets from 1Password via op run
 instawow() {
     op run --no-masking --env-file="$HOME/.config/op/secrets.env" -- instawow "$@"

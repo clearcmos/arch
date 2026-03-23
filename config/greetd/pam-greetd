@@ -8,4 +8,4 @@ auth       optional     pam_kwallet5.so
 account    include      system-local-login
 
 session    include      system-local-login
-session    optional     pam_kwallet5.so auto_start force_run kwalletd=/usr/bin/kwalletd6
+session    optional     pam_kwallet5.so auto_start force_run kwalletd=/usr/bin/ksecretd

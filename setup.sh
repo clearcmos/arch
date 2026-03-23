@@ -312,9 +312,15 @@ info "Configuring mount points..."
 
 # Data disk (nvme0n1p1)
 DATA_UUID="60d4fb47-d8fd-4445-adb0-2fd303da775b"
-DATA_FSTAB="UUID=$DATA_UUID /mnt/data ext4 defaults 0 2"
+DATA_FSTAB="UUID=$DATA_UUID /mnt/data ext4 defaults,nosuid,nodev 0 2"
 if grep -q "$DATA_UUID" /etc/fstab 2>/dev/null; then
-    info "  /mnt/data already in fstab."
+    # Ensure nosuid,nodev flags are present on existing entry
+    if ! grep "$DATA_UUID" /etc/fstab | grep -q 'nosuid'; then
+        sudo sed -i "/$DATA_UUID/ s/ext4.*defaults/ext4 defaults,nosuid,nodev/" /etc/fstab
+        info "  added nosuid,nodev to /mnt/data in fstab."
+    else
+        info "  /mnt/data already in fstab."
+    fi
 else
     sudo mkdir -p /mnt/data
     echo "$DATA_FSTAB" | sudo tee -a /etc/fstab >/dev/null
@@ -499,6 +505,7 @@ copy_config "$SCRIPT_DIR/config/kde/plasmashellrc" "$HOME/.config/plasmashellrc"
 copy_config "$SCRIPT_DIR/config/kde/powerdevilrc" "$HOME/.config/powerdevilrc"
 copy_config "$SCRIPT_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
 copy_config "$SCRIPT_DIR/config/kde/kwinoutputconfig.json" "$HOME/.config/kwinoutputconfig.json"
+copy_config "$SCRIPT_DIR/config/kde/kcminputrc" "$HOME/.config/kcminputrc"
 
 # Bluetooth main config (system-level, requires root)
 BT_CONFIG_CHANGED=false
@@ -569,6 +576,14 @@ else
     systemctl --user daemon-reload
     systemctl --user restart xremap.service
     info "  restarted xremap service."
+fi
+
+# ydotool (synthetic key injection for xremap mode switching)
+if ! systemctl --user is-enabled ydotool.service &>/dev/null; then
+    systemctl --user enable --now ydotool.service
+    info "  enabled and started ydotool service."
+else
+    info "  ydotool service already enabled."
 fi
 
 # Zsh
@@ -652,6 +667,45 @@ fi
 sudo cp "$SCRIPT_DIR/config/sysctl/99-quiet-console.conf" /etc/sysctl.d/99-quiet-console.conf
 sudo sysctl --load /etc/sysctl.d/99-quiet-console.conf &>/dev/null
 info "  deployed sysctl quiet console config."
+
+# Kernel hardening (kptr_restrict, rp_filter)
+sudo cp "$SCRIPT_DIR/config/sysctl/99-hardening.conf" /etc/sysctl.d/99-hardening.conf
+sudo sysctl --load /etc/sysctl.d/99-hardening.conf &>/dev/null
+info "  deployed sysctl hardening config."
+
+# Account lockout (explicit faillock settings)
+sudo cp "$SCRIPT_DIR/config/security/faillock.conf" /etc/security/faillock.conf
+info "  deployed faillock.conf."
+
+# Remove nullok from PAM (disallow passwordless account login)
+if grep -q 'nullok' /etc/pam.d/system-auth 2>/dev/null; then
+    sudo sed -i 's/ nullok//g' /etc/pam.d/system-auth
+    info "  removed nullok from system-auth."
+else
+    info "  system-auth already hardened (no nullok)."
+fi
+
+# Harden /boot mount options (add nosuid,nodev if not present)
+if grep -q '/boot.*vfat' /etc/fstab && ! grep '/boot' /etc/fstab | grep -q 'nosuid'; then
+    sudo sed -i '/\/boot.*vfat/ s/rw,relatime/rw,nosuid,nodev,relatime/' /etc/fstab
+    info "  added nosuid,nodev to /boot in fstab."
+else
+    info "  /boot fstab already hardened."
+fi
+
+# Firewall (nftables)
+if ! diff -q "$SCRIPT_DIR/config/nftables/nftables.conf" /etc/nftables.conf &>/dev/null; then
+    sudo cp "$SCRIPT_DIR/config/nftables/nftables.conf" /etc/nftables.conf
+    info "  deployed nftables.conf."
+else
+    info "  nftables.conf already up to date."
+fi
+if systemctl is-enabled nftables &>/dev/null; then
+    info "  nftables already enabled."
+else
+    sudo systemctl enable --now nftables
+    info "  enabled nftables firewall."
+fi
 
 # Kernel modules
 if [[ ! -f /etc/modules-load.d/i2c-dev.conf ]]; then
@@ -849,6 +903,23 @@ if systemctl is-enabled libvirtd &>/dev/null; then
 else
     sudo systemctl enable --now libvirtd
     info "  enabled and started libvirtd."
+fi
+
+# --- CUPS (LAN printing) ---
+
+info "Configuring CUPS..."
+if ! groups nicholas | grep -q scanner; then
+    sudo usermod -aG scanner nicholas
+    info "  added nicholas to scanner group."
+else
+    info "  nicholas already in scanner group."
+fi
+if ! diff -q "$SCRIPT_DIR/config/cups/cupsd.conf" /etc/cups/cupsd.conf &>/dev/null; then
+    sudo cp "$SCRIPT_DIR/config/cups/cupsd.conf" /etc/cups/cupsd.conf
+    sudo systemctl restart cups
+    info "  deployed cupsd.conf and restarted CUPS."
+else
+    info "  cupsd.conf already up to date."
 fi
 
 # --- Cockpit ---

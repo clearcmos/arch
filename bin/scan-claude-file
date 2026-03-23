@@ -1,0 +1,205 @@
+#!/home/nicholas/arch/.venv/bin/python
+"""Smart filing via Claude Agent SDK.
+
+Reads a scanned file (PDF or image), analyzes it, and suggests a folder + filename
+based on existing folder structure in /mnt/syno/scans/.
+
+Usage:
+    scan-claude-file /path/to/scanned.pdf
+    scan-claude-file /path/to/scanned.png
+
+Output (two lines):
+    /mnt/syno/scans/folder-name
+    filename-without-extension
+
+Exit code 1 if filing fails (caller falls back to next method).
+"""
+
+import asyncio
+import json
+import os
+import re
+import sys
+import unicodedata
+
+from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+
+SCAN_DIR = "/mnt/syno/scans"
+
+
+def gather_folder_context() -> str:
+    """Build a description of existing folders and their files."""
+    if not os.path.isdir(SCAN_DIR):
+        return "The scans directory does not exist yet."
+
+    entries = sorted(os.listdir(SCAN_DIR))
+    folders = []
+    for entry in entries:
+        full = os.path.join(SCAN_DIR, entry)
+        if not os.path.isdir(full):
+            continue
+        files = []
+        for item in sorted(os.listdir(full)):
+            item_path = os.path.join(full, item)
+            if os.path.isfile(item_path):
+                files.append(item)
+            elif os.path.isdir(item_path):
+                try:
+                    for sub in sorted(os.listdir(item_path))[:5]:
+                        if os.path.isfile(os.path.join(item_path, sub)):
+                            files.append(f"{item}/{sub}")
+                except PermissionError:
+                    pass
+        folders.append((entry, files[:20]))
+
+    if not folders:
+        return "The scans directory is currently empty (no folders yet)."
+
+    lines = ["Existing folders in the scans directory:"]
+    for name, files in folders:
+        if files:
+            lines.append(f"  {name}/")
+            for f in files[:10]:
+                lines.append(f"    {f}")
+        else:
+            lines.append(f"  {name}/ (empty)")
+    return "\n".join(lines)
+
+
+def sanitize(text: str) -> str:
+    """Clean a string into a valid lowercase hyphenated name."""
+    text = text.strip().strip('`"\' /\\')
+    text = text.split("\n")[-1].strip()
+    text = re.sub(r"\.(pdf|png|jpg|jpeg|tiff?)$", "", text, flags=re.IGNORECASE)
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^a-z0-9\-]", "", text.lower())
+    text = re.sub(r"-+", "-", text).strip("-")
+    return text
+
+
+def deduplicate(target_dir: str, base_name: str, ext: str) -> str:
+    """Ensure filename doesn't collide with existing files."""
+    final = base_name
+    counter = 1
+    while os.path.exists(os.path.join(target_dir, f"{final}.{ext}")):
+        counter += 1
+        final = f"{base_name}-{counter}"
+    return final
+
+
+async def claude_file(file_path: str, ext: str) -> tuple[str, str]:
+    """Use Claude to analyze file and suggest folder + filename."""
+    folder_context = gather_folder_context()
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "folder": {
+                "type": "string",
+                "description": "Folder name, lowercase with hyphens",
+            },
+            "filename": {
+                "type": "string",
+                "description": "Filename without extension, lowercase with hyphens",
+            },
+        },
+        "required": ["folder", "filename"],
+    }
+
+    prompt = f"""You are a document filing assistant. Read the scanned file at {file_path} and decide a folder name and filename for this document.
+
+Folder rules:
+- Lowercase, hyphens between words
+- Broad categories: municipal-taxes, insurance, banking, medical, receipts, correspondence, utilities, legal, employment, photos
+- If an existing folder clearly relates to this document, REUSE it
+- NEVER use generic names like "misc", "other", "documents"
+
+Filename rules:
+- All lowercase, hyphens only (no underscores, no spaces)
+- Format: DATE-SOURCE-DESCRIPTION
+- DATE comes first (YYYY-MM-DD, or YYYY-MM if only month visible, or YYYY if only year)
+- SOURCE: company, clinic, organization, or person who issued the document
+- DESCRIPTION: document type + key details. Include dollar amounts for receipts/invoices (e.g. 85-50 for $85.50)
+- Do NOT repeat the folder name in the filename (folder already provides the category)
+- Do NOT include the file extension
+- Keep it concise but specific - aim for under 80 characters
+- Examples:
+  - 2026-01-15-clinique-plateau-receipt-nicholas-85-50
+  - 2025-12-01-hydro-quebec-invoice-142-37
+  - 2026-03-intact-home-insurance-renewal
+  - 2026-02-28-ville-de-montreal-tax-bill
+- NEVER suggest a filename identical to one already in the folder
+
+{folder_context}
+
+Read the file and return the folder and filename as JSON."""
+
+    result_msg = None
+    async for msg in query(
+        prompt=prompt,
+        options=ClaudeAgentOptions(
+            allowed_tools=["Read"],
+            permission_mode="bypassPermissions",
+            model="haiku",
+            max_turns=5,
+            output_format={"type": "json_schema", "schema": schema},
+        ),
+    ):
+        if isinstance(msg, ResultMessage):
+            result_msg = msg
+
+    if not result_msg or result_msg.is_error:
+        raise RuntimeError(f"Claude query failed: {result_msg}")
+
+    parsed = None
+    if result_msg.structured_output is not None:
+        if isinstance(result_msg.structured_output, str):
+            parsed = json.loads(result_msg.structured_output)
+        elif isinstance(result_msg.structured_output, dict):
+            parsed = result_msg.structured_output
+
+    if parsed is None and result_msg.result:
+        parsed = json.loads(result_msg.result)
+
+    if not parsed or "folder" not in parsed or "filename" not in parsed:
+        raise RuntimeError(f"No structured output: {result_msg.result}")
+
+    return parsed["folder"], parsed["filename"]
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: scan-claude-file <file-path>", file=sys.stderr)
+        sys.exit(1)
+
+    file_path = sys.argv[1]
+    if not os.path.isfile(file_path):
+        print(f"File not found: {file_path}", file=sys.stderr)
+        sys.exit(1)
+
+    ext = os.path.splitext(file_path)[1].lstrip(".").lower() or "pdf"
+
+    try:
+        folder_name, file_name = asyncio.run(claude_file(file_path, ext))
+    except Exception as e:
+        print(f"Claude filing failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    folder_name = sanitize(folder_name)
+    file_name = sanitize(file_name)
+
+    if not folder_name or len(folder_name) < 2:
+        folder_name = "unsorted"
+    if not file_name or len(file_name) < 3:
+        print("Claude returned unusable filename", file=sys.stderr)
+        sys.exit(1)
+
+    target_dir = os.path.join(SCAN_DIR, folder_name)
+    final_name = deduplicate(target_dir, file_name, ext)
+
+    print(target_dir)
+    print(final_name)
+
+
+if __name__ == "__main__":
+    main()

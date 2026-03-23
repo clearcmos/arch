@@ -73,6 +73,7 @@ mkvtoolnix-cli
 nano
 ncdu
 networkmanager
+nftables
 nextcloud-client
 nmap
 nodejs
@@ -108,11 +109,14 @@ radeontop
 rclone
 reaper
 rustscan
+sane
 shellcheck
 spectacle
 sqlite
 tailscale
 tesseract
+tesseract-data-eng
+tesseract-data-fra
 thunar
 tldr
 tree
@@ -129,6 +133,7 @@ v4l-utils
 virt-manager
 virt-viewer
 vlc
+vlc-plugin-ffmpeg
 vulkan-radeon
 wget
 whois
@@ -141,10 +146,10 @@ xdg-desktop-portal-gtk
 xdg-desktop-portal-kde
 xdg-user-dirs
 xdotool
+ydotool
 yt-dlp
 yubikey-manager
 zip
 zsh
-zsh-autocomplete
 zsh-autosuggestions
 zsh-syntax-highlighting

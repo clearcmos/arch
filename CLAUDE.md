@@ -51,6 +51,24 @@ KDE Plasma 6 on Wayland. Stack: KDE Plasma + KWin + greetd/tuigreet (login) + Th
 
 SSH keys are encrypted with `age` + `age-plugin-yubikey` and stored on the NAS at `/mnt/syno/backups/ssh/cmos-arch/`. The YubiKey identity file lives in `config/age/yubikey-identity.txt` (safe to commit - just a slot reference). Decryption requires the physical YubiKey (PIN + touch). On fresh install, the script restores the key automatically.
 
+## Security Model
+
+Single-user personal workstation on a home LAN (192.168.1.0/24). The router only forwards ports 80/443 to misc.home.arpa (not this machine). WAN access to this machine's services (Cockpit) is proxied through Traefik + Keycloak on misc.
+
+### Threat Assumptions
+
+- **Lateral movement from LAN**: A compromised device on the network could reach this machine. Mitigated by nftables (default-deny inbound, LAN-only rules for SSH/Cockpit), fail2ban, and key-only SSH.
+- **Supply chain (packages)**: AUR packages could contain malicious code. Mitigated by PKGBUILD auditing, pacman pre-transaction hooks, and archival of all PKGBUILDs for post-audit.
+- **Secret leakage**: Credentials could be committed to git. Mitigated by YubiKey-encrypted SSH keys, 1Password CLI runtime injection, trufflehog scanning, and git-filter-repo for history rewriting.
+- **Config drift**: Deployed configs silently diverging from the repo could mask tampering. Mitigated by `tools/check-drift.sh` on all copied configs.
+
+### Principles for Changes
+
+1. **Flag security side-effects proactively.** If a change opens a port, weakens auth, adds a privileged service, or touches secrets handling, say so before making it - even if the user didn't ask about security.
+2. **Least privilege by default.** New services should run unprivileged. New mounts should have restrictive flags. New firewall rules should be LAN-scoped unless there's a reason not to.
+3. **Verify before weakening.** Before removing or loosening a security control, check why it exists by reading the relevant config. It may be load-bearing for something non-obvious (e.g. Brave requires unprivileged user namespaces for sandboxing).
+4. **Secrets never in repo.** No API keys, passwords, tokens, or private keys. If a config needs a secret at runtime, use 1Password CLI (`op run`) or age-encrypted files with YubiKey.
+
 ## Maintenance
 
 - When adding packages, verify online whether they belong in `official.txt` (pacman) or `aur.txt` (paru). Packages move between repos over time.

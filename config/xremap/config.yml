@@ -1,7 +1,27 @@
 keymap:
-  - name: Konsole tab switching with bare arrow keys
+  - name: Mode switch to nano
+    remap:
+      F20: { set_mode: nano }
+
+  - name: Mode switch to default
+    remap:
+      F19: { set_mode: default }
+
+  - name: Konsole remaps (nano mode - pass Ctrl+W through)
     application:
       only: org.kde.konsole
+    mode: nano
+    remap:
+      Left: Shift-Left
+      Right: Shift-Right
+      Shift-Left: Left
+      Shift-Right: Right
+      C-BackSpace: C-w
+
+  - name: Konsole remaps (default)
+    application:
+      only: org.kde.konsole
+    mode: default
     remap:
       Left: Shift-Left
       Right: Shift-Right

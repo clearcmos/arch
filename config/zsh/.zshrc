@@ -32,10 +32,13 @@ export PATH="$HOME/git/depot_tools:$PATH"
 
 # --- Plugins ---
 
-# Autocomplete (vertical dropdown menu) - must be sourced before compinit
-zstyle ':completion:*' menu select
-zstyle ':autocomplete:*' list-lines 16
-source /usr/share/zsh/plugins/zsh-autocomplete/zsh-autocomplete.plugin.zsh
+# fzf-tab (fuzzy tab completion) - must be sourced after compinit
+autoload -Uz compinit && compinit
+source /usr/share/zsh/plugins/fzf-tab-git/fzf-tab.plugin.zsh
+
+# fzf keybindings (Ctrl+R history, Ctrl+T files, Alt+C cd)
+source /usr/share/fzf/key-bindings.zsh
+source /usr/share/fzf/completion.zsh
 
 # Autosuggestions (inline ghost text from history)
 source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh

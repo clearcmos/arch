@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""Smart filing assistant for scan2pdf and scan2png.
+
+Takes a document description (OCR text or image description) and file extension,
+analyzes the existing folder structure in /mnt/syno/scans/, and suggests a
+folder + filename that follows existing naming conventions.
+
+Usage:
+    echo "OCR text here" | python3 scan-smart-file pdf
+    echo "image description" | python3 scan-smart-file png
+
+Output (two lines):
+    /mnt/syno/scans/folder-name
+    filename-without-extension
+
+Exit code 1 if AI suggestion fails (caller should fall back to manual input).
+"""
+
+import json
+import os
+import re
+import sys
+import urllib.request
+
+SCAN_DIR = "/mnt/syno/scans"
+OLLAMA_MODEL = "qwen2.5:7b-instruct"
+OLLAMA_URL = "http://localhost:11434/api/generate"
+
+
+def llm_call(prompt: str) -> str:
+    payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
+    req = urllib.request.Request(
+        OLLAMA_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json; charset=utf-8"},
+    )
+    resp = urllib.request.urlopen(req, timeout=90)
+    data = json.loads(resp.read().decode("utf-8"))
+    return data.get("response", "").strip()
+
+
+def gather_folder_context() -> str:
+    """Build a description of existing folders and their files."""
+    if not os.path.isdir(SCAN_DIR):
+        return "The scans directory does not exist yet."
+
+    entries = sorted(os.listdir(SCAN_DIR))
+    folders = []
+    for entry in entries:
+        full = os.path.join(SCAN_DIR, entry)
+        if not os.path.isdir(full):
+            continue
+        files = []
+        for item in sorted(os.listdir(full)):
+            item_path = os.path.join(full, item)
+            if os.path.isfile(item_path):
+                files.append(item)
+            elif os.path.isdir(item_path):
+                try:
+                    for sub in sorted(os.listdir(item_path))[:5]:
+                        if os.path.isfile(os.path.join(item_path, sub)):
+                            files.append(f"{item}/{sub}")
+                except PermissionError:
+                    pass
+        folders.append((entry, files[:20]))
+
+    if not folders:
+        return "The scans directory is currently empty (no folders yet)."
+
+    lines = ["Existing folders in the scans directory:"]
+    for name, files in folders:
+        if files:
+            lines.append(f"  {name}/")
+            for f in files[:10]:
+                lines.append(f"    {f}")
+        else:
+            lines.append(f"  {name}/ (empty)")
+    return "\n".join(lines)
+
+
+def sanitize(text: str) -> str:
+    """Clean a string into a valid lowercase hyphenated name."""
+    import unicodedata
+
+    text = text.strip().strip('`"\' /\\')
+    text = text.split("\n")[-1].strip()
+    text = re.sub(r"\.(pdf|png|jpg|jpeg|tiff?)$", "", text, flags=re.IGNORECASE)
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^a-z0-9\-]", "", text.lower())
+    text = re.sub(r"-+", "-", text).strip("-")
+    return text
+
+
+def deduplicate(target_dir: str, base_name: str, ext: str) -> str:
+    """Ensure filename doesn't collide with existing files."""
+    final = base_name
+    counter = 1
+    while os.path.exists(os.path.join(target_dir, f"{final}.{ext}")):
+        counter += 1
+        final = f"{base_name}-{counter}"
+    return final
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: echo 'description' | scan-smart-file <ext>", file=sys.stderr)
+        sys.exit(1)
+
+    ext = sys.argv[1].lower().lstrip(".")
+    description = sys.stdin.read().strip()
+
+    if not description:
+        print("No description provided", file=sys.stderr)
+        sys.exit(1)
+
+    # Check ollama is reachable
+    try:
+        urllib.request.urlopen("http://localhost:11434/api/tags", timeout=3)
+    except Exception:
+        print("Ollama not reachable", file=sys.stderr)
+        sys.exit(1)
+
+    folder_context = gather_folder_context()
+
+    # Truncate description to avoid huge payloads
+    desc_short = "\n".join(description.splitlines()[:40])
+
+    prompt = f"""You are a document filing assistant. A document was just scanned and OCR'd. The OCR text may be noisy or garbled - look for recognizable keywords, names, dates, and amounts to identify the document type.
+
+Your job: decide a folder name and filename for this document.
+
+Rules:
+- Folder names: lowercase, hyphens between words. Use broad categories like: municipal-taxes, insurance, banking, medical, receipts, correspondence, utilities, legal, employment, photos
+- Filenames: lowercase, hyphens between words. Be specific and include the year if visible (e.g. montreal-tax-bill-2024, home-insurance-intact-2025, hydro-quebec-invoice-jan-2024)
+- Do NOT include the file extension
+- If an existing folder clearly relates to this document, REUSE it
+- If the folder has existing files, match their naming style closely
+- NEVER use generic names like "other-document", "document", "scan", "misc", or "other". Always identify the document type from keywords
+- NEVER suggest a filename identical to one already in the folder
+- Look for these clues in noisy OCR: city names (Montreal, Laval), company names (Hydro-Quebec, Bell, Intact), document types (facture/invoice, taxe/tax, assurance/insurance, releve/statement), years and dates
+
+{folder_context}
+
+Document content (may be noisy OCR - look for keywords):
+{desc_short}
+
+Reply in EXACTLY this format (two lines, nothing else):
+FOLDER: folder-name
+FILE: filename-without-extension"""
+
+    raw = llm_call(prompt)
+
+    folder_name = None
+    file_name = None
+    for line in raw.splitlines():
+        line = line.strip()
+        upper = line.upper()
+        if upper.startswith("FOLDER:"):
+            folder_name = sanitize(line.split(":", 1)[1])
+        elif upper.startswith("FILE:"):
+            file_name = sanitize(line.split(":", 1)[1])
+
+    if not folder_name or len(folder_name) < 2:
+        folder_name = "unsorted"
+    if not file_name or len(file_name) < 3:
+        print("AI returned unusable filename", file=sys.stderr)
+        sys.exit(1)
+
+    target_dir = os.path.join(SCAN_DIR, folder_name)
+    final_name = deduplicate(target_dir, file_name, ext)
+
+    # Output: folder path on line 1, filename on line 2
+    print(target_dir)
+    print(final_name)
+
+
+if __name__ == "__main__":
+    main()

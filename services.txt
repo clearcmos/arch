@@ -2,6 +2,7 @@
 NetworkManager
 bluetooth
 greetd
+nftables
 sshd
 pcscd
 

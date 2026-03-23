@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+# Scan image to PNG with Brother DCP-7060D scanner
+# Files to /mnt/syno/scans/ using: Claude (default) -> Ollama (fallback) -> date-based (last resort)
+# Usage: scan2png
+
+set -e
+
+SCAN_DIR="/mnt/syno/scans"
+CLAUDE_FILE="$HOME/arch/bin/scan-claude-file"
+SMART_FILE="$HOME/arch/bin/scan-smart-file"
+VISION_MODEL="moondoom"
+OLLAMA_URL="http://localhost:11434/api/generate"
+
+# Get a text description of an image using vision model
+describe_image() {
+    local image_path="$1"
+
+    if ! curl -s --max-time 2 http://localhost:11434/api/tags > /dev/null 2>&1; then
+        return 1
+    fi
+
+    local img_b64
+    img_b64=$(base64 -w0 "$image_path")
+
+    local payload_file
+    payload_file=$(mktemp /tmp/scan-ollama-XXXXXX.json)
+
+    python3 -c "
+import json, sys
+payload = {
+    'model': '$VISION_MODEL',
+    'prompt': 'Describe this image in one sentence. What is the main subject? Include any visible text, dates, or identifying details.',
+    'images': [sys.stdin.read().strip()],
+    'stream': False
+}
+json.dump(payload, open('$payload_file', 'w'))
+" <<< "$img_b64"
+
+    local response
+    response=$(curl -s --max-time 120 "$OLLAMA_URL" -d @"$payload_file" 2>/dev/null)
+    rm -f "$payload_file"
+
+    echo "$response" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    desc = data.get('response', '').strip()
+    if len(desc) > 5:
+        print(desc)
+except:
+    pass
+" 2>/dev/null
+}
+
+# Try filing with cascade: Claude -> Ollama -> local fallback
+# Sets suggested_folder and suggested_file
+try_filing() {
+    local file_path="$1"
+    suggested_folder=""
+    suggested_file=""
+
+    # 1. Try Claude
+    echo "Filing with Claude..."
+    if result=$("$CLAUDE_FILE" "$file_path" 2>/dev/null); then
+        suggested_folder=$(echo "$result" | sed -n '1p')
+        suggested_file=$(echo "$result" | sed -n '2p')
+        if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
+            echo "  Filed by Claude."
+            return
+        fi
+    fi
+
+    # 2. Try Ollama (vision + text model)
+    echo "Claude unavailable, trying Ollama..."
+    local description=""
+    description=$(describe_image "$file_path" 2>/dev/null) || true
+    if [ -n "$description" ]; then
+        if result=$(echo "$description" | python3 "$SMART_FILE" png 2>/dev/null); then
+            suggested_folder=$(echo "$result" | sed -n '1p')
+            suggested_file=$(echo "$result" | sed -n '2p')
+            if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
+                echo "  Filed by Ollama."
+                return
+            fi
+        fi
+    fi
+
+    # 3. Local fallback
+    echo "AI unavailable. Using date-based filename."
+    suggested_folder="$SCAN_DIR/unsorted"
+    suggested_file="scan-$(date +%Y%m%d-%H%M%S)"
+}
+
+# Verify output directory
+if [ ! -d "$SCAN_DIR" ]; then
+    echo "Error: Output directory $SCAN_DIR does not exist. Is /mnt/syno mounted?"
+    exit 1
+fi
+
+# Detect Brother scanner
+echo "Detecting scanner..."
+scanner_device=$(scanimage -L 2>&1 | grep "brother4:" | sed -n "s/device \`\([^']*\)'.*/\1/p" | head -1)
+
+if [ -z "$scanner_device" ]; then
+    echo "Error: Brother scanner not found. Is it powered on and connected?"
+    exit 1
+fi
+
+echo "Using scanner: $scanner_device"
+echo "Resolution: 300 DPI (Color)"
+echo "Output: $SCAN_DIR/<folder>/<filename>.png"
+echo ""
+
+# Scan to temp PNG
+echo "Scanning..."
+tmp_png=$(mktemp /tmp/scan-XXXXXX.png)
+
+scanimage --device-name "$scanner_device" \
+    --format=png \
+    --resolution 300 \
+    --mode "24bit Color" \
+    > "$tmp_png"
+
+# Auto-crop scanner bed using Claude vision
+echo "Cropping..."
+img_dims=$(magick identify -format '%wx%h' "$tmp_png")
+img_w=${img_dims%x*}
+img_h=${img_dims#*x}
+crop_pcts=$("$HOME/arch/bin/scan-crop" "$tmp_png" 2>/dev/null || true)
+
+if [ -n "$crop_pcts" ]; then
+    IFS=',' read -r left top right bottom <<< "$crop_pcts"
+    cx=$(( img_w * left / 100 ))
+    cy=$(( img_h * top / 100 ))
+    cw=$(( img_w * (right - left) / 100 ))
+    ch=$(( img_h * (bottom - top) / 100 ))
+    # Sanity: cropped area must be at least 40% of original
+    if [ $((cw * ch * 100 / (img_w * img_h))) -ge 40 ]; then
+        magick "$tmp_png" -crop "${cw}x${ch}+${cx}+${cy}" +repage "$tmp_png"
+        echo "  Cropped to ${cw}x${ch}."
+    else
+        echo "  Crop area too small, keeping original."
+    fi
+else
+    echo "  Could not detect crop bounds, keeping original."
+fi
+
+# File the scan
+try_filing "$tmp_png"
+
+# Save
+mkdir -p "$suggested_folder"
+output_path="$suggested_folder/${suggested_file}.png"
+mv "$tmp_png" "$output_path"
+
+if [ -f "$output_path" ]; then
+    file_size=$(du -h "$output_path" | cut -f1)
+    echo "Saved: $output_path ($file_size)"
+else
+    echo "Error: Scan failed"
+fi

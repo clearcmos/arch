@@ -1,0 +1,64 @@
+#!/home/nicholas/arch/.venv/bin/python
+"""Detect crop bounds for a scanner image using Claude vision.
+
+Usage: scan-crop /path/to/image.png
+
+Output: left_pct,top_pct,right_pct,bottom_pct
+Exit code 1 if detection fails.
+"""
+
+import asyncio
+import sys
+
+from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+
+
+async def main():
+    if len(sys.argv) < 2:
+        sys.exit(1)
+
+    image_path = sys.argv[1]
+
+    prompt = f"""Read the image at {image_path}
+
+This is a flatbed scanner output. The scanned object is placed on the scanner glass. The dark/black area is the scanner lid - it should be cropped away.
+
+Look carefully at where the object edges are. Return crop coordinates as percentages of image dimensions:
+left_pct,top_pct,right_pct,bottom_pct
+
+- left_pct: percentage from left where the object starts
+- top_pct: percentage from top where the object starts
+- right_pct: percentage from left where the object ENDS
+- bottom_pct: percentage from top where the object ENDS
+
+Be generous - include a small margin around the object so nothing is cut off. It is much better to include a tiny bit of dark border than to cut off any content.
+
+Reply with ONLY four numbers separated by commas."""
+
+    result_msg = None
+    async for msg in query(
+        prompt=prompt,
+        options=ClaudeAgentOptions(
+            allowed_tools=["Read"],
+            permission_mode="bypassPermissions",
+            model="sonnet",
+            max_turns=3,
+        ),
+    ):
+        if isinstance(msg, ResultMessage):
+            result_msg = msg
+
+    if not result_msg or not result_msg.result:
+        sys.exit(1)
+
+    # Extract four numbers (may be integers or decimals)
+    import re
+    match = re.search(r'([\d.]+),([\d.]+),([\d.]+),([\d.]+)', result_msg.result)
+    if match:
+        nums = [int(float(x)) for x in match.groups()]
+        print(f"{nums[0]},{nums[1]},{nums[2]},{nums[3]}")
+    else:
+        sys.exit(1)
+
+
+asyncio.run(main())
