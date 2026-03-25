@@ -17,6 +17,8 @@ Exit code 1 if filing fails (caller falls back to next method).
 """
 
 import base64
+import importlib.machinery
+import importlib.util
 import json
 import os
 import re
@@ -187,6 +189,18 @@ FILE: filename-without-extension"""
         sys.exit(1)
 
     target_dir = os.path.join(SCAN_DIR, folder_name)
+
+    # Fuzzy-match folder and filename against existing files
+    fuzzy_path = os.path.join(os.path.dirname(__file__), "scan-fuzzy-match")
+    loader = importlib.machinery.SourceFileLoader("scan_fuzzy", fuzzy_path)
+    spec = importlib.util.spec_from_file_location("scan_fuzzy", fuzzy_path, loader=loader)
+    fuzzy_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fuzzy_mod)
+
+    folder_name = fuzzy_mod.fuzzy_correct_folder(folder_name, SCAN_DIR)
+    target_dir = os.path.join(SCAN_DIR, folder_name)
+    file_name = fuzzy_mod.fuzzy_correct(file_name, target_dir)
+
     final_name = deduplicate(target_dir, file_name, ext)
 
     print(target_dir)

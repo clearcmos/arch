@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""Fuzzy-match entity names and folder names against existing files.
+
+Post-processes AI-generated filenames to enforce consistency with existing
+naming conventions. Two correction passes:
+
+1. Substring entity correction: if a known multi-word entity (appearing in
+   2+ files) is found as a substring of a longer candidate segment, the
+   longer form is replaced with the canonical short form.
+   e.g. "clinique-telus-sante" -> "telus-sante" (if "telus-sante" is known)
+
+2. Fuzzy entity correction: if a candidate segment closely matches a known
+   entity (>80% similarity), replace with the canonical form.
+   e.g. "telus-sant" -> "telus-sante" (typo correction)
+
+Uses difflib (stdlib) - no external dependencies.
+
+Usage as module:
+    from importlib.util import spec_from_file_location, module_from_spec
+    spec = spec_from_file_location("scan_fuzzy", "/path/to/scan-fuzzy-match")
+    mod = module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    corrected_name = mod.fuzzy_correct("clinique-telus-sant-prescription", "/mnt/syno/scans/medical")
+    corrected_folder = mod.fuzzy_correct_folder("medcal", "/mnt/syno/scans")
+"""
+
+import difflib
+import os
+import re
+
+FUZZY_CUTOFF = 0.8
+FOLDER_FUZZY_CUTOFF = 0.85
+
+
+def collect_filenames(folder: str) -> list[str]:
+    """Collect all filenames from a folder and one level of subfolders."""
+    names = []
+    if not os.path.isdir(folder):
+        return names
+    for item in os.listdir(folder):
+        path = os.path.join(folder, item)
+        if os.path.isfile(path):
+            names.append(os.path.splitext(item)[0])
+        elif os.path.isdir(path):
+            try:
+                for sub in os.listdir(path):
+                    if os.path.isfile(os.path.join(path, sub)):
+                        names.append(os.path.splitext(sub)[0])
+            except PermissionError:
+                pass
+    return names
+
+
+def strip_date(filename: str) -> list[str]:
+    """Return the non-date parts of a filename as a list of words."""
+    parts = filename.split("-")
+    i = 0
+    while i < len(parts) and re.match(r"^\d{1,4}$", parts[i]):
+        i += 1
+    return parts[i:]
+
+
+def extract_entities(filenames: list[str]) -> dict[str, int]:
+    """Extract multi-word segments that appear in 2+ filenames.
+
+    Only considers segments of 2-4 words. These are likely entity names
+    (company, clinic, organization) rather than descriptive words.
+    """
+    segment_files: dict[str, set[int]] = {}
+    for idx, name in enumerate(filenames):
+        parts = strip_date(name)
+        for length in range(2, min(5, len(parts) + 1)):
+            for start in range(len(parts) - length + 1):
+                seg = "-".join(parts[start : start + length])
+                if seg not in segment_files:
+                    segment_files[seg] = set()
+                segment_files[seg].add(idx)
+
+    return {seg: len(files) for seg, files in segment_files.items() if len(files) >= 2}
+
+
+def fuzzy_correct(candidate: str, folder: str) -> str:
+    """Correct entity names in a candidate filename using existing files.
+
+    Pass 1 - Substring replacement: if a known entity is a contiguous
+    substring of a longer segment in the candidate, replace the longer
+    segment with the known entity. Handles the AI adding extra words
+    to a known name (e.g. "clinique-telus-sante" -> "telus-sante").
+
+    Pass 2 - Fuzzy replacement: if a candidate segment of the same word
+    count closely matches a known entity (>80%), replace with the canonical
+    form. Handles typos (e.g. "telus-sant" -> "telus-sante").
+    """
+    filenames = collect_filenames(folder)
+    if not filenames:
+        return candidate
+
+    entities = extract_entities(filenames)
+    if not entities:
+        return candidate
+
+    # Sort by word count descending, then frequency
+    sorted_entities = sorted(
+        entities.keys(), key=lambda s: (-len(s.split("-")), -entities[s])
+    )
+
+    # Split candidate into date prefix and remainder
+    parts = candidate.split("-")
+    i = 0
+    while i < len(parts) and re.match(r"^\d{1,4}$", parts[i]):
+        i += 1
+    date_prefix = "-".join(parts[:i])
+    cand_parts = parts[i:]
+
+    if not cand_parts:
+        return candidate
+
+    # Pass 1: prefix stripping
+    # If a known entity appears in the candidate with extra words BEFORE it
+    # that are not part of any other known entity, strip those prefix words.
+    # e.g. "clinique-telus-sante-prescription" -> "telus-sante-prescription"
+    # Only strips prefixes, never suffixes (words after entities are descriptors).
+    all_entity_words = set()
+    for e in sorted_entities:
+        for w in e.split("-"):
+            all_entity_words.add(w)
+
+    for entity in sorted_entities:
+        entity_words = entity.split("-")
+        entity_len = len(entity_words)
+
+        for start in range(1, len(cand_parts) - entity_len + 1):
+            if cand_parts[start : start + entity_len] == entity_words:
+                # Entity found at position 'start' - check if prefix words are noise
+                prefix = cand_parts[:start]
+                # Only strip if prefix words are NOT part of any known entity
+                if not any(w in all_entity_words for w in prefix):
+                    cand_parts = cand_parts[start:]
+                break
+
+    # Pass 2: fuzzy entity replacement (same word count, >80% similarity)
+    for entity in sorted_entities:
+        entity_words = entity.split("-")
+        entity_len = len(entity_words)
+
+        for start in range(len(cand_parts) - entity_len + 1):
+            cand_seg = "-".join(cand_parts[start : start + entity_len])
+
+            if cand_seg == entity:
+                continue
+
+            ratio = difflib.SequenceMatcher(None, cand_seg, entity).ratio()
+            if ratio >= FUZZY_CUTOFF:
+                cand_parts = (
+                    cand_parts[:start] + entity_words + cand_parts[start + entity_len :]
+                )
+                break
+
+    result = "-".join(cand_parts)
+    if date_prefix:
+        return f"{date_prefix}-{result}"
+    return result
+
+
+def fuzzy_correct_folder(folder_name: str, scan_dir: str) -> str:
+    """Correct a folder name against existing folders in the scan directory.
+
+    If the suggested folder closely matches an existing one (>85% similarity),
+    return the existing folder name. Otherwise return the original.
+    """
+    if not os.path.isdir(scan_dir):
+        return folder_name
+
+    existing = [
+        d for d in os.listdir(scan_dir) if os.path.isdir(os.path.join(scan_dir, d))
+    ]
+    if not existing:
+        return folder_name
+
+    # Exact match - no correction needed
+    if folder_name in existing:
+        return folder_name
+
+    best_match = None
+    best_score = 0.0
+    for name in existing:
+        score = difflib.SequenceMatcher(None, folder_name, name).ratio()
+        if score > best_score:
+            best_score = score
+            best_match = name
+
+    if best_match and best_score >= FOLDER_FUZZY_CUTOFF:
+        return best_match
+
+    return folder_name
