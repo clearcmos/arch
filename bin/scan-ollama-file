@@ -1,12 +1,13 @@
-#!/home/nicholas/arch/.venv/bin/python
-"""Smart filing via Claude Agent SDK.
+#!/usr/bin/env python3
+"""Single-pass document filing via Ollama vision model.
 
-Reads a scanned file (PDF or image), analyzes it, and suggests a folder + filename
-based on existing folder structure in /mnt/syno/scans/.
+Takes a scanned image, sends it directly to a vision model with structured
+JSON output, and returns a folder + filename. No intermediate text description
+step - the vision model does classification and naming in one pass.
 
 Usage:
-    scan-claude-file /path/to/scanned.pdf
-    scan-claude-file /path/to/scanned.png
+    scan-ollama-file /path/to/scanned.tiff [/path/to/ocr-text.txt]
+    scan-ollama-file /path/to/scanned.png [/path/to/ocr-text.txt]
 
 Output (two lines):
     /mnt/syno/scans/folder-name
@@ -15,16 +16,17 @@ Output (two lines):
 Exit code 1 if filing fails (caller falls back to next method).
 """
 
-import asyncio
+import base64
 import json
 import os
 import re
 import sys
 import unicodedata
-
-from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+import urllib.request
 
 SCAN_DIR = "/mnt/syno/scans"
+OLLAMA_MODEL = "qwen3-vl:4b"
+OLLAMA_URL = "http://localhost:11434/api/generate"
 
 
 def gather_folder_context() -> str:
@@ -87,26 +89,43 @@ def deduplicate(target_dir: str, base_name: str, ext: str) -> str:
     return final
 
 
-async def claude_file(file_path: str, ext: str) -> tuple[str, str]:
-    """Use Claude to analyze file and suggest folder + filename."""
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: scan-ollama-file <image-path>", file=sys.stderr)
+        sys.exit(1)
+
+    image_path = sys.argv[1]
+    if not os.path.isfile(image_path):
+        print(f"File not found: {image_path}", file=sys.stderr)
+        sys.exit(1)
+
+    ext = os.path.splitext(image_path)[1].lstrip(".").lower() or "pdf"
+
+    # Check ollama is reachable
+    try:
+        urllib.request.urlopen("http://localhost:11434/api/tags", timeout=3)
+    except Exception:
+        print("Ollama not reachable", file=sys.stderr)
+        sys.exit(1)
+
+    img_b64 = base64.b64encode(open(image_path, "rb").read()).decode("ascii")
     folder_context = gather_folder_context()
 
-    schema = {
-        "type": "object",
-        "properties": {
-            "folder": {
-                "type": "string",
-                "description": "Folder name, lowercase with hyphens",
-            },
-            "filename": {
-                "type": "string",
-                "description": "Filename without extension, lowercase with hyphens",
-            },
-        },
-        "required": ["folder", "filename"],
-    }
+    # Load OCR text if provided
+    ocr_text = ""
+    if len(sys.argv) >= 3 and os.path.isfile(sys.argv[2]):
+        ocr_text = open(sys.argv[2]).read().strip()
+        # Truncate to avoid huge payloads
+        ocr_text = "\n".join(ocr_text.splitlines()[:40])
 
-    prompt = f"""You are a document filing assistant. Read the scanned file at {file_path} and decide a folder name and filename for this document.
+    ocr_section = ""
+    if ocr_text:
+        ocr_section = f"""
+OCR text extracted from this document (use this for typed/printed text like names, dates, addresses, clinic names):
+{ocr_text}
+"""
+
+    prompt = f"""You are a document filing assistant. Analyze this scanned document image and decide a folder name and filename.
 
 Folder rules:
 - Lowercase, hyphens between words
@@ -124,75 +143,47 @@ Filename rules:
 - Do NOT repeat the folder name in the filename (folder already provides the category)
 - Do NOT include the file extension
 - Keep it concise but specific - aim for under 80 characters
-- Examples:
-  - 2026-01-15-clinique-plateau-urology-receipt-85-50
-  - 2025-12-01-hydro-quebec-invoice-142-37
-  - 2026-03-intact-home-insurance-renewal
-  - 2026-02-28-ville-de-montreal-tax-bill
 - NEVER suggest a filename identical to one already in the folder
-
+- Do NOT attempt to read handwritten text for the filename. Only use printed/typed text.
+{ocr_section}
 {folder_context}
 
-Read the file and return the folder and filename as JSON."""
+Reply in EXACTLY this format (two lines, nothing else):
+FOLDER: folder-name
+FILE: filename-without-extension"""
 
-    result_msg = None
-    async for msg in query(
-        prompt=prompt,
-        options=ClaudeAgentOptions(
-            allowed_tools=["Read"],
-            permission_mode="bypassPermissions",
-            model="haiku",
-            max_turns=5,
-            output_format={"type": "json_schema", "schema": schema},
-        ),
-    ):
-        if isinstance(msg, ResultMessage):
-            result_msg = msg
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "images": [img_b64],
+        "stream": False,
+        "options": {"temperature": 0, "think": False},
+    }
 
-    if not result_msg or result_msg.is_error:
-        raise RuntimeError(f"Claude query failed: {result_msg}")
+    req = urllib.request.Request(
+        OLLAMA_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json; charset=utf-8"},
+    )
+    resp = urllib.request.urlopen(req, timeout=120)
+    data = json.loads(resp.read().decode("utf-8"))
 
-    parsed = None
-    if result_msg.structured_output is not None:
-        if isinstance(result_msg.structured_output, str):
-            parsed = json.loads(result_msg.structured_output)
-        elif isinstance(result_msg.structured_output, dict):
-            parsed = result_msg.structured_output
+    raw = data.get("response", "")
 
-    if parsed is None and result_msg.result:
-        parsed = json.loads(result_msg.result)
-
-    if not parsed or "folder" not in parsed or "filename" not in parsed:
-        raise RuntimeError(f"No structured output: {result_msg.result}")
-
-    return parsed["folder"], parsed["filename"]
-
-
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: scan-claude-file <file-path>", file=sys.stderr)
-        sys.exit(1)
-
-    file_path = sys.argv[1]
-    if not os.path.isfile(file_path):
-        print(f"File not found: {file_path}", file=sys.stderr)
-        sys.exit(1)
-
-    ext = os.path.splitext(file_path)[1].lstrip(".").lower() or "pdf"
-
-    try:
-        folder_name, file_name = asyncio.run(claude_file(file_path, ext))
-    except Exception as e:
-        print(f"Claude filing failed: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    folder_name = sanitize(folder_name)
-    file_name = sanitize(file_name)
+    folder_name = None
+    file_name = None
+    for line in raw.splitlines():
+        line = line.strip()
+        upper = line.upper()
+        if upper.startswith("FOLDER:"):
+            folder_name = sanitize(line.split(":", 1)[1])
+        elif upper.startswith("FILE:"):
+            file_name = sanitize(line.split(":", 1)[1])
 
     if not folder_name or len(folder_name) < 2:
         folder_name = "unsorted"
     if not file_name or len(file_name) < 3:
-        print("Claude returned unusable filename", file=sys.stderr)
+        print("Ollama returned unusable filename", file=sys.stderr)
         sys.exit(1)
 
     target_dir = os.path.join(SCAN_DIR, folder_name)

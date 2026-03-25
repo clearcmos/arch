@@ -23,7 +23,7 @@ import sys
 import urllib.request
 
 SCAN_DIR = "/mnt/syno/scans"
-OLLAMA_MODEL = "qwen2.5:7b-instruct"
+OLLAMA_MODEL = "llama3.2:3b"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
 
@@ -129,15 +129,28 @@ def main():
 
 Your job: decide a folder name and filename for this document.
 
-Rules:
-- Folder names: lowercase, hyphens between words. Use broad categories like: municipal-taxes, insurance, banking, medical, receipts, correspondence, utilities, legal, employment, photos
-- Filenames: lowercase, hyphens between words. Be specific and include the year if visible (e.g. montreal-tax-bill-2024, home-insurance-intact-2025, hydro-quebec-invoice-jan-2024)
-- Do NOT include the file extension
+Folder rules:
+- Lowercase, hyphens between words
+- Broad categories: municipal-taxes, insurance, banking, medical, receipts, correspondence, utilities, legal, employment, photos
 - If an existing folder clearly relates to this document, REUSE it
-- If the folder has existing files, match their naming style closely
-- NEVER use generic names like "other-document", "document", "scan", "misc", or "other". Always identify the document type from keywords
+- NEVER use generic names like "misc", "other", "documents"
+
+Filename rules:
+- All lowercase, hyphens only (no underscores, no spaces)
+- Format: DATE-SOURCE-DESCRIPTION
+- DATE comes first (YYYY-MM-DD, or YYYY-MM if only month visible, or YYYY if only year)
+- SOURCE: company, clinic, organization, or person who issued the document
+- DESCRIPTION: document type + key details. Include dollar amounts for receipts/invoices (e.g. 85-50 for $85.50)
+- Do NOT repeat the folder name in the filename (folder already provides the category)
+- Do NOT include the file extension
+- Keep it concise but specific - aim for under 80 characters
 - NEVER suggest a filename identical to one already in the folder
 - Look for these clues in noisy OCR: city names (Montreal, Laval), company names (Hydro-Quebec, Bell, Intact), document types (facture/invoice, taxe/tax, assurance/insurance, releve/statement), years and dates
+- Examples:
+  - 2026-01-15-clinique-plateau-receipt-nicholas-85-50
+  - 2025-12-01-hydro-quebec-invoice-142-37
+  - 2026-03-intact-home-insurance-renewal
+  - 2026-02-28-ville-de-montreal-tax-bill
 
 {folder_context}
 

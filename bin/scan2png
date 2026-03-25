@@ -7,50 +7,7 @@ set -e
 
 SCAN_DIR="/mnt/syno/scans"
 CLAUDE_FILE="$HOME/arch/bin/scan-claude-file"
-SMART_FILE="$HOME/arch/bin/scan-smart-file"
-VISION_MODEL="moondoom"
-OLLAMA_URL="http://localhost:11434/api/generate"
-
-# Get a text description of an image using vision model
-describe_image() {
-    local image_path="$1"
-
-    if ! curl -s --max-time 2 http://localhost:11434/api/tags > /dev/null 2>&1; then
-        return 1
-    fi
-
-    local img_b64
-    img_b64=$(base64 -w0 "$image_path")
-
-    local payload_file
-    payload_file=$(mktemp /tmp/scan-ollama-XXXXXX.json)
-
-    python3 -c "
-import json, sys
-payload = {
-    'model': '$VISION_MODEL',
-    'prompt': 'Describe this image in one sentence. What is the main subject? Include any visible text, dates, or identifying details.',
-    'images': [sys.stdin.read().strip()],
-    'stream': False
-}
-json.dump(payload, open('$payload_file', 'w'))
-" <<< "$img_b64"
-
-    local response
-    response=$(curl -s --max-time 120 "$OLLAMA_URL" -d @"$payload_file" 2>/dev/null)
-    rm -f "$payload_file"
-
-    echo "$response" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    desc = data.get('response', '').strip()
-    if len(desc) > 5:
-        print(desc)
-except:
-    pass
-" 2>/dev/null
-}
+OLLAMA_FILE="$HOME/arch/bin/scan-ollama-file"
 
 # Try filing with cascade: Claude -> Ollama -> local fallback
 # Sets suggested_folder and suggested_file
@@ -70,18 +27,14 @@ try_filing() {
         fi
     fi
 
-    # 2. Try Ollama (vision + text model)
+    # 2. Try Ollama (single-pass vision model)
     echo "Claude unavailable, trying Ollama..."
-    local description=""
-    description=$(describe_image "$file_path" 2>/dev/null) || true
-    if [ -n "$description" ]; then
-        if result=$(echo "$description" | python3 "$SMART_FILE" png 2>/dev/null); then
-            suggested_folder=$(echo "$result" | sed -n '1p')
-            suggested_file=$(echo "$result" | sed -n '2p')
-            if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
-                echo "  Filed by Ollama."
-                return
-            fi
+    if result=$("$OLLAMA_FILE" "$file_path" 2>/dev/null); then
+        suggested_folder=$(echo "$result" | sed -n '1p')
+        suggested_file=$(echo "$result" | sed -n '2p')
+        if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
+            echo "  Filed by Ollama."
+            return
         fi
     fi
 

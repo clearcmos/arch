@@ -8,83 +8,43 @@ set -e
 
 SCAN_DIR="/mnt/syno/scans"
 CLAUDE_FILE="$HOME/arch/bin/scan-claude-file"
-SMART_FILE="$HOME/arch/bin/scan-smart-file"
-VISION_MODEL="qwen2.5vl:7b"
-OLLAMA_URL="http://localhost:11434/api/generate"
-
-# Get a text description of a document image using vision model
-describe_document() {
-    local image_path="$1"
-
-    if ! curl -s --max-time 2 http://localhost:11434/api/tags > /dev/null 2>&1; then
-        return 1
-    fi
-
-    local img_b64
-    img_b64=$(base64 -w0 "$image_path")
-
-    local payload_file
-    payload_file=$(mktemp /tmp/scan-ollama-XXXXXX.json)
-
-    python3 -c "
-import json, sys
-payload = {
-    'model': '$VISION_MODEL',
-    'prompt': 'What type of document is this? Include: the document type, any company or organization name, any dates or years visible, and the language. Be specific and concise, one paragraph.',
-    'images': [sys.stdin.read().strip()],
-    'stream': False
-}
-json.dump(payload, open('$payload_file', 'w'))
-" <<< "$img_b64"
-
-    local response
-    response=$(curl -s --max-time 120 "$OLLAMA_URL" -d @"$payload_file" 2>/dev/null)
-    rm -f "$payload_file"
-
-    echo "$response" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    desc = data.get('response', '').strip()
-    if len(desc) > 5:
-        print(desc)
-except:
-    pass
-" 2>/dev/null
-}
+OLLAMA_FILE="$HOME/arch/bin/scan-ollama-file"
 
 # Try filing with cascade: Claude -> Ollama -> local fallback
 # Sets suggested_folder and suggested_file
 try_filing() {
     local pdf_path="$1"
     local tiff_path="$2"
+    local ocr_text_path="$3"
     suggested_folder=""
     suggested_file=""
 
     # 1. Try Claude (reads the PDF directly)
     echo "Filing with Claude..."
+    local start_time=$SECONDS
     if result=$("$CLAUDE_FILE" "$pdf_path" 2>/dev/null); then
         suggested_folder=$(echo "$result" | sed -n '1p')
         suggested_file=$(echo "$result" | sed -n '2p')
         if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
-            echo "  Filed by Claude."
+            echo "  Filed by Claude in $((SECONDS - start_time))s."
             return
         fi
     fi
 
-    # 2. Try Ollama (vision model on TIFF + text model for filing)
+    # 2. Try Ollama (single-pass vision model + OCR text)
     echo "Claude unavailable, trying Ollama..."
     if [ -n "$tiff_path" ] && [ -f "$tiff_path" ]; then
-        local description=""
-        description=$(describe_document "$tiff_path" 2>/dev/null) || true
-        if [ -n "$description" ]; then
-            if result=$(echo "$description" | python3 "$SMART_FILE" pdf 2>/dev/null); then
-                suggested_folder=$(echo "$result" | sed -n '1p')
-                suggested_file=$(echo "$result" | sed -n '2p')
-                if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
-                    echo "  Filed by Ollama."
-                    return
-                fi
+        local ollama_args=("$tiff_path")
+        if [ -n "$ocr_text_path" ] && [ -f "$ocr_text_path" ]; then
+            ollama_args+=("$ocr_text_path")
+        fi
+        local start_time=$SECONDS
+        if result=$("$OLLAMA_FILE" "${ollama_args[@]}" 2>/dev/null); then
+            suggested_folder=$(echo "$result" | sed -n '1p')
+            suggested_file=$(echo "$result" | sed -n '2p')
+            if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
+                echo "  Filed by Ollama in $((SECONDS - start_time))s."
+                return
             fi
         fi
     fi
@@ -125,17 +85,19 @@ scanimage --device-name "$scanner_device" \
     --mode Gray \
     > "$tmp_tiff"
 
-# OCR to searchable PDF
+# OCR to searchable PDF + extract text for Ollama
 echo "Creating searchable PDF..."
 tmp_pdf_base=$(mktemp /tmp/scan-pdf-XXXXXX)
+tmp_ocr=$(mktemp /tmp/scan-ocr-XXXXXX)
 tesseract "$tmp_tiff" "$tmp_pdf_base" -l eng+fra pdf 2>/dev/null
+tesseract "$tmp_tiff" "$tmp_ocr" -l eng+fra 2>/dev/null
 tmp_pdf="${tmp_pdf_base}.pdf"
 
-# File the scan (pass both PDF and TIFF so Ollama can use the image)
-try_filing "$tmp_pdf" "$tmp_tiff"
+# File the scan (pass TIFF for image, OCR text file for context)
+try_filing "$tmp_pdf" "$tmp_tiff" "${tmp_ocr}.txt"
 
 # Cleanup temp files
-rm -f "$tmp_tiff" "$tmp_pdf_base"
+rm -f "$tmp_tiff" "$tmp_pdf_base" "${tmp_ocr}.txt" "$tmp_ocr"
 
 # Save
 mkdir -p "$suggested_folder"
