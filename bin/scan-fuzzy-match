@@ -193,3 +193,26 @@ def fuzzy_correct_folder(folder_name: str, scan_dir: str) -> str:
         return best_match
 
     return folder_name
+
+
+# Folders that get automatic year subfolders when they grow large
+YEAR_SUBFOLDER_CATEGORIES = {"medical"}
+
+
+def year_subfolder(folder_name: str, file_name: str) -> str:
+    """Add a year subfolder for certain categories based on the filename date.
+
+    Extracts the year from the leading YYYY in the filename and appends it
+    to the folder path. Only applies to categories in YEAR_SUBFOLDER_CATEGORIES.
+
+    Returns the folder_name unchanged if not applicable.
+    """
+    if folder_name not in YEAR_SUBFOLDER_CATEGORIES:
+        return folder_name
+
+    match = re.match(r"^(\d{4})-", file_name)
+    if not match:
+        return folder_name
+
+    year = match.group(1)
+    return os.path.join(folder_name, year)

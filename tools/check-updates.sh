@@ -381,7 +381,7 @@ echo ""
 
 AUDIT_PROMPT="You are an AUR PKGBUILD security and stability auditor for Arch Linux.
 
-TARGET SYSTEM: AMD RX 6800 XT (mesa/RADV, RDNA2), Intel i7-13700K, KDE Plasma 6 on Wayland, KWin, PipeWire, greetd/tuigreet, Wine/Lutris, Docker, libvirt/KVM, Bluetooth (bluez + PipeWire).
+TARGET SYSTEM: AMD RX 6800 XT (mesa/RADV, RDNA2), Intel i7-13700K, KDE Plasma 6 on Wayland, KWin, PipeWire/WirePlumber, greetd/tuigreet, Wine-staging/Lutris/Gamemode, Docker, libvirt/KVM/QEMU, Bluetooth (bluez + PipeWire), nftables firewall, Tailscale, Nix package manager, NetworkManager.
 
 PENDING AUR UPDATES ($AUR_COUNT):
 ${AUR_UPDATES:-None}

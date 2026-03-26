@@ -1,48 +1,13 @@
 #!/usr/bin/env bash
 # Scan image to PNG with Brother DCP-7060D scanner
-# Files to /mnt/syno/scans/ using: Claude (default) -> Ollama (fallback) -> date-based (last resort)
+# Files to /mnt/syno/scans/ with AI-powered filing and date-based last resort
 # Usage: scan2png
 
 set -e
 
 SCAN_DIR="/mnt/syno/scans"
-CLAUDE_FILE="$HOME/arch/bin/scan-claude-file"
-OLLAMA_FILE="$HOME/arch/bin/scan-ollama-file"
-
-# Try filing with cascade: Claude -> Ollama -> local fallback
-# Sets suggested_folder and suggested_file
-try_filing() {
-    local file_path="$1"
-    suggested_folder=""
-    suggested_file=""
-
-    # 1. Try Claude
-    echo "Filing with Claude..."
-    if result=$("$CLAUDE_FILE" "$file_path" 2>/dev/null); then
-        suggested_folder=$(echo "$result" | sed -n '1p')
-        suggested_file=$(echo "$result" | sed -n '2p')
-        if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
-            echo "  Filed by Claude."
-            return
-        fi
-    fi
-
-    # 2. Try Ollama (single-pass vision model)
-    echo "Claude unavailable, trying Ollama..."
-    if result=$("$OLLAMA_FILE" "$file_path" 2>/dev/null); then
-        suggested_folder=$(echo "$result" | sed -n '1p')
-        suggested_file=$(echo "$result" | sed -n '2p')
-        if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
-            echo "  Filed by Ollama."
-            return
-        fi
-    fi
-
-    # 3. Local fallback
-    echo "AI unavailable. Using date-based filename."
-    suggested_folder="$SCAN_DIR/unsorted"
-    suggested_file="scan-$(date +%Y%m%d-%H%M%S)"
-}
+AI_SCRIPT="scan2png"
+source "$HOME/arch/bin/ai-provider"
 
 # Verify output directory
 if [ ! -d "$SCAN_DIR" ]; then
@@ -98,8 +63,8 @@ else
     echo "  Could not detect crop bounds, keeping original."
 fi
 
-# File the scan
-try_filing "$tmp_png"
+# File the scan (PNG passed as both image for Ollama and file for Claude)
+try_ai_file "$tmp_png" "$tmp_png"
 
 # Save
 mkdir -p "$suggested_folder"

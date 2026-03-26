@@ -1,0 +1,237 @@
+#!/usr/bin/env bash
+# Generate a commit message with Ollama, confirm, commit, and push.
+# Run from any git repo. Uses llama3.2:3b by default.
+#
+# Optimized for small models via:
+#   - JSON chain-of-thought: model must summarize before writing the title
+#   - Single Ollama call for small diffs
+#   - Per-file summarization for large diffs (like smart-commit's atomic approach)
+#   - Minimal context lines (diff -U1) to reduce noise
+set -euo pipefail
+
+MODEL="${OLLAMA_MODEL:-llama3.2:3b}"
+
+# Must be in a git repo
+if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    echo "Not a git repository." >&2
+    exit 1
+fi
+
+# Check for changes
+unstaged=$(git diff --stat)
+staged=$(git diff --cached --stat)
+if [ -z "$unstaged" ] && [ -z "$staged" ]; then
+    echo "No changes to commit." >&2
+    exit 0
+fi
+
+# Show the user what we're working with
+echo "=== Changes ==="
+git status --short
+echo ""
+
+# Build the diff content for the prompt
+# Include untracked files in the file list
+file_list=$(git diff --name-status HEAD 2>/dev/null || git diff --name-status --cached)
+untracked=$(git ls-files --others --exclude-standard)
+if [ -n "$untracked" ]; then
+    file_list="${file_list}
+$(echo "$untracked" | sed 's/^/A\t/')"
+fi
+
+# Minimal context diff - reduces noise for small models
+diff_content=$(git diff -U1 HEAD 2>/dev/null || git diff -U1 --cached)
+
+# Helper: call Ollama API and extract response (handles thinking models)
+ollama_call() {
+    local call_prompt="$1"
+    local max_tokens="${2:-256}"
+    local resp
+    resp=$(curl -s http://localhost:11434/api/generate -d "$(jq -n \
+        --arg model "$MODEL" \
+        --arg prompt "$call_prompt" \
+        --argjson max "$max_tokens" \
+        '{model: $model, prompt: $prompt, format: "json", stream: false,
+          options: {temperature: 0, num_predict: $max}}')")
+    echo "$resp" | jq -r '
+        if (.response // "") != "" then .response
+        elif (.thinking // "") != "" then .thinking
+        else empty end' 2>/dev/null
+}
+
+# For large diffs, summarize each file individually then synthesize.
+# This gives the model actual diff content per file instead of just stats.
+if [ ${#diff_content} -gt 4000 ]; then
+    echo "Large diff detected - summarizing per file..."
+
+    # Split diff by file and summarize each
+    summaries=""
+    # Process tracked files: split the combined diff on "diff --git" boundaries
+    while IFS= read -r file_path; do
+        [ -z "$file_path" ] && continue
+        # Get per-file diff (small enough for the model)
+        file_diff=$(git diff -U1 HEAD -- "$file_path" 2>/dev/null || git diff -U1 --cached -- "$file_path")
+        if [ -z "$file_diff" ]; then
+            continue
+        fi
+        # Truncate individual file diffs that are still huge
+        if [ ${#file_diff} -gt 3000 ]; then
+            file_diff="${file_diff:0:3000}
+... (truncated)"
+        fi
+        file_summary=$(ollama_call "Summarize this git diff in one sentence. Output JSON: {\"summary\": \"...\"}
+
+<diff>
+${file_diff}
+</diff>" 100)
+        one_line=$(echo "$file_summary" | jq -r '.summary // empty' 2>/dev/null)
+        if [ -n "$one_line" ]; then
+            summaries="${summaries}
+- ${file_path}: ${one_line}"
+            echo "  ${file_path}" >&2
+        fi
+    done < <(git diff --name-only HEAD 2>/dev/null || git diff --name-only --cached)
+
+    # Also note untracked (new) files
+    if [ -n "$untracked" ]; then
+        while IFS= read -r new_file; do
+            summaries="${summaries}
+- ${new_file}: new file"
+            echo "  ${new_file} (new)" >&2
+        done <<< "$untracked"
+    fi
+
+    changes="<per-file-summaries>
+${summaries}
+</per-file-summaries>"
+else
+    changes="<diff>
+${diff_content}
+</diff>"
+fi
+
+# Single-call JSON chain-of-thought prompt.
+# Asking for summary FIRST forces the model to reason about the changes
+# before writing the title - the summary acts as scratchpad/CoT.
+# Temperature 0 for deterministic, schema-adherent output.
+prompt="You are a git commit message writer. Analyze the changes below.
+
+Step 1: Write a summary of ALL the changes (what was added, modified, removed).
+Step 2: From YOUR summary, extract one short commit title.
+
+Respond in JSON: {\"summary\": \"...\", \"title\": \"...\"}
+
+Title rules:
+- MUST be under 72 chars - this is a hard limit
+- Lowercase after first word, no period
+- Start with a verb: Add (new feature/file), Update (changed behavior), Fix (bug), Refactor (restructure), Remove (deletion)
+- Only use Fix for actual bugs. New guards/checks/features use Add
+- For many changes: find the 2-3 main themes, do NOT list every change
+- Rephrase your summary into a clear, specific title - not a shortened version
+
+${changes}"
+
+echo "Generating commit message with ${MODEL}..."
+
+generate() {
+    local raw
+    raw=$(ollama_call "$prompt" 256)
+
+    if [ -z "$raw" ]; then
+        echo ""
+        return
+    fi
+
+    # Try to extract title from JSON
+    local title
+    title=$(echo "$raw" | jq -r '.title // empty' 2>/dev/null)
+
+    if [ -n "$title" ]; then
+        # Show the summary for transparency
+        local summary
+        summary=$(echo "$raw" | jq -r '.summary // empty' 2>/dev/null)
+        if [ -n "$summary" ]; then
+            echo "  Reasoning: ${summary}" >&2
+            echo "" >&2
+        fi
+        echo "$title"
+        return
+    fi
+
+    # JSON parsing failed - try to salvage first line
+    echo "$raw" | head -1 | sed 's/^["'\''`]//;s/["'\''`]$//'
+}
+
+message=$(generate)
+
+# Clean up common model artifacts
+message=$(echo "$message" | head -1 | sed 's/^["'\''`]//;s/["'\''`]$//' | sed 's/^\*\*//;s/\*\*$//')
+
+if [ -z "$message" ]; then
+    echo "Ollama returned an empty response." >&2
+    exit 1
+fi
+
+# Display the suggested message
+echo "=== Suggested commit message ==="
+echo "$message"
+echo "================================"
+echo ""
+
+# Prompt for acceptance
+while true; do
+    read -rp "[a]ccept / [e]dit / [r]egenerate / [q]uit? " choice
+    case "$choice" in
+        a|A)
+            break
+            ;;
+        e|E)
+            tmpfile=$(mktemp)
+            echo "$message" > "$tmpfile"
+            "${EDITOR:-nano}" "$tmpfile"
+            message=$(cat "$tmpfile")
+            rm -f "$tmpfile"
+            echo ""
+            echo "=== Final commit message ==="
+            echo "$message"
+            echo "============================="
+            read -rp "Commit with this message? [y/n] " yn
+            if [[ "$yn" =~ ^[yY]$ ]]; then
+                break
+            fi
+            echo "Aborted."
+            exit 0
+            ;;
+        r|R)
+            echo ""
+            echo "Regenerating..."
+            message=$(generate)
+            message=$(echo "$message" | head -1 | sed 's/^["'\''`]//;s/["'\''`]$//' | sed 's/^\*\*//;s/\*\*$//')
+            echo ""
+            echo "=== Suggested commit message ==="
+            echo "$message"
+            echo "================================"
+            echo ""
+            ;;
+        q|Q)
+            echo "Aborted."
+            exit 0
+            ;;
+        *)
+            echo "Invalid choice."
+            ;;
+    esac
+done
+
+# Stage all changes and commit
+git add -A
+git commit -m "$message"
+
+echo ""
+read -rp "Push to $(git remote get-url origin 2>/dev/null || echo 'remote')? [y/n] " push_yn
+if [[ "$push_yn" =~ ^[yY]$ ]]; then
+    git push
+    echo "Pushed."
+else
+    echo "Committed locally. Run 'git push' when ready."
+fi

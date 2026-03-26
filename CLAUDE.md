@@ -74,6 +74,7 @@ Single-user personal workstation on a home LAN (192.168.1.0/24). The router only
 - When adding packages, verify online whether they belong in `official.txt` (pacman) or `aur.txt` (paru). Packages move between repos over time.
 - When adding new config files, add them to `setup.sh` using `copy_config` for KDE files or `link_config` for everything else.
 - Do not update CLAUDE.md or setup.sh when making config/system changes until the changes are tested and confirmed working by the user.
+- **Keep AUR audit prompts in sync.** When changing the system stack (adding/removing packages, services, drivers, networking, audio, display, virtualization, or gaming components), update the `TARGET SYSTEM` line in both `config/shell/audit-pkgbuild.sh` and `tools/check-updates.sh` to reflect the change. If the change introduces a new category of stability risk not covered by the existing checklist items, add it.
 
 ## check-drift (tools/check-drift.sh)
 
@@ -84,6 +85,10 @@ Detects when deployed config copies have diverged from the repo. Only **copied**
 - Do NOT add entries for configs that are routinely modified by their application at runtime (e.g. Lutris game configs, CurseForge). Drift checking those would just produce noise.
 - Configs that are only read from the repo at runtime (e.g. `config/age/yubikey-identity.txt`) or only used by the installer (e.g. `config/autostart/first-login.desktop`) are not deployed by setup.sh and do not need drift entries.
 - Scripts that are executed by setup.sh rather than deployed (e.g. `config/kwin/setup-kwin-scripts.sh`) also do not need drift entries.
+
+## Python Virtual Environment
+
+A shared Python venv lives at `~/arch/.venv/` (gitignored). Use this for any Python dependencies needed by scripts or tools. Activate with `~/arch/.venv/bin/python` or `~/arch/.venv/bin/pip`.
 
 ## Key Conventions
 

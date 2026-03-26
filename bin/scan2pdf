@@ -1,59 +1,22 @@
 #!/usr/bin/env bash
 # Scan document to searchable PDF with Brother DCP-7060D scanner
 # Tesseract adds searchable text layer (OCR)
-# Files to /mnt/syno/scans/ using: Claude (default) -> Ollama (fallback) -> date-based (last resort)
-# Usage: scan2pdf
+# Files to /mnt/syno/scans/ with AI-powered filing and date-based last resort
+# Usage: scan2pdf [--append]
 
 set -e
 
 SCAN_DIR="/mnt/syno/scans"
-CLAUDE_FILE="$HOME/arch/bin/scan-claude-file"
-OLLAMA_FILE="$HOME/arch/bin/scan-ollama-file"
+APPEND_MODE=false
 
-# Try filing with cascade: Claude -> Ollama -> local fallback
-# Sets suggested_folder and suggested_file
-try_filing() {
-    local pdf_path="$1"
-    local tiff_path="$2"
-    local ocr_text_path="$3"
-    suggested_folder=""
-    suggested_file=""
+if [ "$1" = "--append" ]; then
+    APPEND_MODE=true
+fi
 
-    # 1. Try Claude (reads the PDF directly)
-    echo "Filing with Claude..."
-    local start_time=$SECONDS
-    if result=$("$CLAUDE_FILE" "$pdf_path" 2>/dev/null); then
-        suggested_folder=$(echo "$result" | sed -n '1p')
-        suggested_file=$(echo "$result" | sed -n '2p')
-        if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
-            echo "  Filed by Claude in $((SECONDS - start_time))s."
-            return
-        fi
-    fi
-
-    # 2. Try Ollama (single-pass vision model + OCR text)
-    echo "Claude unavailable, trying Ollama..."
-    if [ -n "$tiff_path" ] && [ -f "$tiff_path" ]; then
-        local ollama_args=("$tiff_path")
-        if [ -n "$ocr_text_path" ] && [ -f "$ocr_text_path" ]; then
-            ollama_args+=("$ocr_text_path")
-        fi
-        local start_time=$SECONDS
-        if result=$("$OLLAMA_FILE" "${ollama_args[@]}" 2>/dev/null); then
-            suggested_folder=$(echo "$result" | sed -n '1p')
-            suggested_file=$(echo "$result" | sed -n '2p')
-            if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
-                echo "  Filed by Ollama in $((SECONDS - start_time))s."
-                return
-            fi
-        fi
-    fi
-
-    # 3. Local fallback
-    echo "AI unavailable. Using date-based filename."
-    suggested_folder="$SCAN_DIR/unsorted"
-    suggested_file="scan-$(date +%Y%m%d-%H%M%S)"
-}
+if [ "$APPEND_MODE" = false ]; then
+    AI_SCRIPT="scan2pdf"
+    source "$HOME/arch/bin/ai-provider"
+fi
 
 # Verify output directory
 if [ ! -d "$SCAN_DIR" ]; then
@@ -72,7 +35,6 @@ fi
 
 echo "Using scanner: $scanner_device"
 echo "Resolution: 300 DPI (Grayscale, searchable PDF with OCR)"
-echo "Output: $SCAN_DIR/<folder>/<filename>.pdf"
 echo ""
 
 # Scan to temp TIFF
@@ -85,28 +47,62 @@ scanimage --device-name "$scanner_device" \
     --mode Gray \
     > "$tmp_tiff"
 
-# OCR to searchable PDF + extract text for Ollama
+# OCR to searchable PDF
 echo "Creating searchable PDF..."
 tmp_pdf_base=$(mktemp /tmp/scan-pdf-XXXXXX)
-tmp_ocr=$(mktemp /tmp/scan-ocr-XXXXXX)
 tesseract "$tmp_tiff" "$tmp_pdf_base" -l eng+fra pdf 2>/dev/null
-tesseract "$tmp_tiff" "$tmp_ocr" -l eng+fra 2>/dev/null
 tmp_pdf="${tmp_pdf_base}.pdf"
 
-# File the scan (pass TIFF for image, OCR text file for context)
-try_filing "$tmp_pdf" "$tmp_tiff" "${tmp_ocr}.txt"
+if [ "$APPEND_MODE" = true ]; then
+    # Append mode: select existing PDF via fzf, add new page to it
+    echo ""
+    echo "Select a PDF to append to:"
+    target=$(find "$SCAN_DIR" -name "*.pdf" -type f | \
+        sed "s|^${SCAN_DIR}/||" | \
+        sort | \
+        fzf --height=20 --reverse --prompt="Append to: ")
 
-# Cleanup temp files
-rm -f "$tmp_tiff" "$tmp_pdf_base" "${tmp_ocr}.txt" "$tmp_ocr"
+    if [ -z "$target" ]; then
+        echo "No file selected. Aborting."
+        rm -f "$tmp_tiff" "$tmp_pdf_base" "$tmp_pdf"
+        exit 1
+    fi
 
-# Save
-mkdir -p "$suggested_folder"
-output_path="$suggested_folder/${suggested_file}.pdf"
-mv "$tmp_pdf" "$output_path"
+    target_path="$SCAN_DIR/$target"
+    tmp_merged=$(mktemp /tmp/scan-merged-XXXXXX.pdf)
 
-if [ -f "$output_path" ]; then
-    file_size=$(du -h "$output_path" | cut -f1)
-    echo "Saved: $output_path ($file_size)"
+    # Merge existing PDF + new page
+    pdfunite "$target_path" "$tmp_pdf" "$tmp_merged"
+    mv "$tmp_merged" "$target_path"
+
+    rm -f "$tmp_tiff" "$tmp_pdf_base" "$tmp_pdf"
+
+    page_count=$(pdfinfo "$target_path" 2>/dev/null | grep "^Pages:" | awk '{print $2}')
+    file_size=$(du -h "$target_path" | cut -f1)
+    echo "Appended to: $target_path ($page_count pages, $file_size)"
 else
-    echo "Error: Scan failed"
+    # Normal mode: AI-powered filing
+    echo "Output: $SCAN_DIR/<folder>/<filename>.pdf"
+
+    # Extract OCR text for Ollama
+    tmp_ocr=$(mktemp /tmp/scan-ocr-XXXXXX)
+    tesseract "$tmp_tiff" "$tmp_ocr" -l eng+fra 2>/dev/null
+
+    # File the scan
+    try_ai_file "$tmp_pdf" "$tmp_tiff" "${tmp_ocr}.txt"
+
+    # Cleanup temp files
+    rm -f "$tmp_tiff" "$tmp_pdf_base" "${tmp_ocr}.txt" "$tmp_ocr"
+
+    # Save
+    mkdir -p "$suggested_folder"
+    output_path="$suggested_folder/${suggested_file}.pdf"
+    mv "$tmp_pdf" "$output_path"
+
+    if [ -f "$output_path" ]; then
+        file_size=$(du -h "$output_path" | cut -f1)
+        echo "Saved: $output_path ($file_size)"
+    else
+        echo "Error: Scan failed"
+    fi
 fi

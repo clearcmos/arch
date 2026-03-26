@@ -207,6 +207,7 @@ def main():
     spec.loader.exec_module(fuzzy_mod)
 
     folder_name = fuzzy_mod.fuzzy_correct_folder(folder_name, SCAN_DIR)
+    folder_name = fuzzy_mod.year_subfolder(folder_name, file_name)
     target_dir = os.path.join(SCAN_DIR, folder_name)
     file_name = fuzzy_mod.fuzzy_correct(file_name, target_dir)
 

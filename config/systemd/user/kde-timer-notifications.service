@@ -1,0 +1,13 @@
+[Unit]
+Description=KDE Timer Notifications - Firebase RTDB listener
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/home/nicholas/git/timer-cli/.venv/bin/python /home/nicholas/git/timer-cli/kde-notifications/timer_notifier.py
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

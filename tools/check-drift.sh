@@ -20,7 +20,9 @@ check() {
     local src="$1" dst="$2"
     [[ -f "$dst" ]] || return 0
     checked=$((checked + 1))
-    if diff -q "$src" "$dst" &>/dev/null; then
+    local diff_cmd=(diff)
+    [[ "$dst" == /etc/* ]] && diff_cmd=(sudo diff)
+    if "${diff_cmd[@]}" -q "$src" "$dst" &>/dev/null; then
         return 0
     fi
     drifted=$((drifted + 1))
@@ -37,7 +39,7 @@ check() {
             d)
                 local tmp
                 tmp=$(mktemp)
-                diff --color=always --side-by-side --left-column \
+                "${diff_cmd[@]}" --color=always --side-by-side --left-column \
                     --label "REPO: $(basename "$src")" \
                     --label "LIVE: $dst" \
                     "$src" "$dst" > "$tmp" || true
@@ -46,7 +48,7 @@ check() {
                 ;;
             c)
                 local udiff tmp_diff
-                udiff=$(diff -u "$src" "$dst" || true)
+                udiff=$("${diff_cmd[@]}" -u "$src" "$dst" || true)
                 tmp_diff=$(mktemp)
                 echo "$udiff" > "$tmp_diff"
                 echo ""
@@ -94,6 +96,9 @@ $(cat "$tmp_diff")")
     done
 }
 
+# Pre-authenticate sudo for /etc/ file checks
+sudo -v
+
 echo "Checking for configuration drift..."
 echo ""
 
@@ -104,6 +109,7 @@ check "$REPO_DIR/config/kde/powerdevilrc" "$HOME/.config/powerdevilrc"
 check "$REPO_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
 check "$REPO_DIR/config/kde/kwinoutputconfig.json" "$HOME/.config/kwinoutputconfig.json"
 check "$REPO_DIR/config/kde/kcminputrc" "$HOME/.config/kcminputrc"
+check "$REPO_DIR/config/kde/kxkbrc" "$HOME/.config/kxkbrc"
 
 # User systemd services (copied)
 check "$REPO_DIR/config/xremap/xremap.service" "$HOME/.config/systemd/user/xremap.service"

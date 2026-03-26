@@ -1,13 +1,13 @@
 keymap:
   - name: Mode switch to nano
     remap:
-      F20: { set_mode: nano }
+      F22: { set_mode: nano }
 
   - name: Mode switch to default
     remap:
-      F19: { set_mode: default }
+      F21: { set_mode: default }
 
-  - name: Konsole remaps (nano mode - pass Ctrl+W through)
+  - name: Terminal remaps (nano mode - pass Ctrl+W through)
     application:
       only: org.kde.konsole
     mode: nano
@@ -18,7 +18,7 @@ keymap:
       Shift-Right: Right
       C-BackSpace: C-w
 
-  - name: Konsole remaps (default)
+  - name: Terminal remaps (default)
     application:
       only: org.kde.konsole
     mode: default

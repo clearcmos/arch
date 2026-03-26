@@ -332,7 +332,7 @@ info "  /mnt/data mounted."
 
 # NAS (Synology)
 SYNO_SHARE="//192.168.1.4/syno"
-SYNO_FSTAB="$SYNO_SHARE /mnt/syno cifs credentials=/etc/cifs/credentials,uid=1000,gid=100,vers=3.0,file_mode=0770,dir_mode=0770,soft,nounix,serverino,mapposix,noauto,x-systemd.automount,x-systemd.idle-timeout=60 0 0"
+SYNO_FSTAB="$SYNO_SHARE /mnt/syno cifs credentials=/etc/cifs/credentials,uid=1000,gid=100,vers=3.0,file_mode=0770,dir_mode=0770,soft,nounix,serverino,mapposix,cache=loose,noauto,x-systemd.automount 0 0"
 
 # Create CIFS credentials file if missing
 if [[ ! -f /etc/cifs/credentials ]]; then
@@ -506,6 +506,7 @@ copy_config "$SCRIPT_DIR/config/kde/powerdevilrc" "$HOME/.config/powerdevilrc"
 copy_config "$SCRIPT_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
 copy_config "$SCRIPT_DIR/config/kde/kwinoutputconfig.json" "$HOME/.config/kwinoutputconfig.json"
 copy_config "$SCRIPT_DIR/config/kde/kcminputrc" "$HOME/.config/kcminputrc"
+copy_config "$SCRIPT_DIR/config/kde/kxkbrc" "$HOME/.config/kxkbrc"
 
 # Bluetooth main config (system-level, requires root)
 BT_CONFIG_CHANGED=false
@@ -613,7 +614,7 @@ link_config "$SCRIPT_DIR/config/op/secrets.env" "$HOME/.config/op/secrets.env"
 
 # Shell scripts -> ~/.local/bin/
 mkdir -p "$HOME/.local/bin"
-for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur check-upgrades-hook brave-reload-ext remove-pkg article2md article2pdf; do
+for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur check-upgrades-hook brave-reload-ext remove-pkg article2md article2pdf t; do
     chmod +x "$SCRIPT_DIR/config/shell/${script}.sh"
     ln -sf "$SCRIPT_DIR/config/shell/${script}.sh" "$HOME/.local/bin/$script"
 done
@@ -969,6 +970,77 @@ info "  deployed user systemd services."
 chmod +x "$SCRIPT_DIR/config/kwin/setup-kwin-scripts.sh"
 bash "$SCRIPT_DIR/config/kwin/setup-kwin-scripts.sh"
 info "  deployed KWin scripts (Meta+F10, Meta+F11)."
+
+# --- System Dashboard ---
+
+info "Configuring System Dashboard..."
+DASHBOARD_DIR="$HOME/git/system-dashboard"
+if [[ -d "$DASHBOARD_DIR" ]]; then
+    # Set up Python venv if missing
+    if [[ ! -d "$DASHBOARD_DIR/.venv" ]]; then
+        python3 -m venv "$DASHBOARD_DIR/.venv"
+        "$DASHBOARD_DIR/.venv/bin/pip" install -q -r "$DASHBOARD_DIR/backend/requirements.txt"
+        info "  created venv and installed dependencies."
+    else
+        info "  venv already exists."
+    fi
+
+    # Deploy systemd service
+    if ! diff -q "$SCRIPT_DIR/config/systemd/system-dashboard.service" /etc/systemd/system/system-dashboard.service &>/dev/null; then
+        sudo cp "$SCRIPT_DIR/config/systemd/system-dashboard.service" /etc/systemd/system/system-dashboard.service
+        sudo systemctl daemon-reload
+        info "  deployed system-dashboard.service."
+    else
+        info "  system-dashboard.service already up to date."
+    fi
+
+    if systemctl is-enabled system-dashboard &>/dev/null; then
+        info "  system-dashboard already enabled."
+        sudo systemctl restart system-dashboard
+        info "  restarted system-dashboard."
+    else
+        sudo systemctl enable --now system-dashboard
+        info "  enabled and started system-dashboard."
+    fi
+else
+    warn "  ~/git/system-dashboard not found, skipping."
+fi
+
+# --- Timer CLI ---
+
+info "Configuring Timer CLI..."
+TIMER_DIR="$HOME/git/timer-cli"
+if [[ -d "$TIMER_DIR" ]]; then
+    # Set up Python venv if missing
+    if [[ ! -d "$TIMER_DIR/.venv" ]]; then
+        python3 -m venv "$TIMER_DIR/.venv"
+        "$TIMER_DIR/.venv/bin/pip" install -q requests pyjwt cryptography rich firebase-admin dbus-python
+        info "  created venv and installed dependencies."
+    else
+        info "  venv already exists."
+    fi
+
+    # Create secrets directory
+    mkdir -p "$HOME/.config/timer-cli/secrets"
+
+    # Deploy KDE timer notifications user service
+    cp "$SCRIPT_DIR/config/systemd/user/kde-timer-notifications.service" "$HOME/.config/systemd/user/"
+    systemctl --user daemon-reload
+    if [[ -f "$HOME/.config/timer-cli/secrets/firebase-service-account.json" ]]; then
+        if systemctl --user is-enabled kde-timer-notifications &>/dev/null; then
+            systemctl --user restart kde-timer-notifications
+            info "  restarted kde-timer-notifications."
+        else
+            systemctl --user enable --now kde-timer-notifications
+            info "  enabled and started kde-timer-notifications."
+        fi
+    else
+        info "  secrets not yet placed, skipping kde-timer-notifications start."
+        info "  decrypt secrets to ~/.config/timer-cli/secrets/ then enable manually."
+    fi
+else
+    warn "  ~/git/timer-cli not found, skipping."
+fi
 
 # --- Done ---
 

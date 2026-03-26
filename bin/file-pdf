@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# File an existing PDF into /mnt/syno/scans/ with AI-powered naming.
+# OCRs the PDF if needed, then uses the AI cascade to determine folder + filename.
+# Usage: file-pdf /path/to/document.pdf
+
+set -e
+
+SCAN_DIR="/mnt/syno/scans"
+AI_SCRIPT="file-pdf"
+source "$HOME/arch/bin/ai-provider"
+
+if [ -z "$1" ] || [ ! -f "$1" ]; then
+    echo "Usage: file-pdf <path-to-pdf>"
+    exit 1
+fi
+
+input_pdf="$1"
+
+if [ ! -d "$SCAN_DIR" ]; then
+    echo "Error: Output directory $SCAN_DIR does not exist. Is /mnt/syno mounted?"
+    exit 1
+fi
+
+echo "Filing: $input_pdf"
+
+# Check if PDF already has text (is it already OCR'd?)
+existing_text=$(pdftotext "$input_pdf" - 2>/dev/null | head -20)
+
+if [ -n "$existing_text" ]; then
+    echo "PDF already has text content."
+    ocr_pdf="$input_pdf"
+    needs_ocr=false
+else
+    echo "No text found, running OCR..."
+    needs_ocr=true
+fi
+
+# Convert first page to image for Ollama vision
+tmp_img=$(mktemp /tmp/file-pdf-XXXXXX.png)
+magick "${input_pdf}[0]" -density 300 -colorspace Gray "$tmp_img" 2>/dev/null
+
+# OCR if needed
+tmp_ocr=$(mktemp /tmp/file-pdf-ocr-XXXXXX)
+if [ "$needs_ocr" = true ]; then
+    tmp_pdf_base=$(mktemp /tmp/file-pdf-out-XXXXXX)
+    tesseract "$tmp_img" "$tmp_pdf_base" -l eng+fra pdf 2>/dev/null
+    tesseract "$tmp_img" "$tmp_ocr" -l eng+fra 2>/dev/null
+    ocr_pdf="${tmp_pdf_base}.pdf"
+else
+    # Extract text for Ollama context
+    pdftotext "$input_pdf" "${tmp_ocr}.txt" 2>/dev/null
+    ocr_pdf="$input_pdf"
+fi
+
+# AI filing
+try_ai_file "$ocr_pdf" "$tmp_img" "${tmp_ocr}.txt"
+
+# Cleanup temp files
+rm -f "$tmp_img" "$tmp_ocr" "${tmp_ocr}.txt"
+if [ "$needs_ocr" = true ]; then
+    rm -f "$tmp_pdf_base"
+fi
+
+# Save
+mkdir -p "$suggested_folder"
+output_path="$suggested_folder/${suggested_file}.pdf"
+
+if [ "$needs_ocr" = true ]; then
+    mv "$ocr_pdf" "$output_path"
+else
+    cp "$input_pdf" "$output_path"
+fi
+
+if [ -f "$output_path" ]; then
+    file_size=$(du -h "$output_path" | cut -f1)
+    echo "Saved: $output_path ($file_size)"
+else
+    echo "Error: Filing failed"
+fi

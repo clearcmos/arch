@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Shared AI provider library for automation scripts.
+# Source this file to get try_ai_file() which handles the provider cascade.
+#
+# Provider resolution order:
+#   1. AI_PRIMARY env var (per-command: AI_PRIMARY=claude scan2pdf)
+#   2. AI_PRIMARY_<SCRIPT> in provider.conf (per-script override)
+#   3. AI_PRIMARY in provider.conf (global default)
+#   4. Hardcoded fallback: ollama
+#
+# Usage in scripts:
+#   AI_SCRIPT="scan2pdf"  # must match key suffix in provider.conf
+#   source "$HOME/arch/bin/ai-provider"
+#   try_ai_file "$pdf_path" "$tiff_path" "$ocr_text_path"
+#   # Sets: suggested_folder, suggested_file
+
+_AI_CONF="$HOME/arch/config/ai/provider.conf"
+
+# Resolve provider: env var > per-script config > global config > fallback
+if [ -z "$AI_PRIMARY" ]; then
+    if [ -n "$AI_SCRIPT" ] && [ -f "$_AI_CONF" ]; then
+        _script_key="AI_PRIMARY_${AI_SCRIPT//-/_}"
+        _script_key="${_script_key^^}"
+        AI_PRIMARY=$(sed -n "s/^${_script_key}=//p" "$_AI_CONF" 2>/dev/null)
+    fi
+    if [ -z "$AI_PRIMARY" ] && [ -f "$_AI_CONF" ]; then
+        AI_PRIMARY=$(sed -n 's/^AI_PRIMARY=//p' "$_AI_CONF" 2>/dev/null)
+    fi
+    : "${AI_PRIMARY:=ollama}"
+fi
+
+CLAUDE_FILE="$HOME/arch/bin/scan-claude-file"
+OLLAMA_FILE="$HOME/arch/bin/scan-ollama-file"
+
+_try_claude() {
+    local pdf_path="$1"
+    echo "Trying Claude..."
+    local start_time=$SECONDS
+    if result=$("$CLAUDE_FILE" "$pdf_path" 2>/dev/null); then
+        suggested_folder=$(echo "$result" | sed -n '1p')
+        suggested_file=$(echo "$result" | sed -n '2p')
+        if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
+            echo "  Filed by Claude in $((SECONDS - start_time))s."
+            return 0
+        fi
+    fi
+    return 1
+}
+
+_try_ollama() {
+    local tiff_path="$1"
+    local ocr_text_path="$2"
+    echo "Trying Ollama..."
+    if [ -z "$tiff_path" ] || [ ! -f "$tiff_path" ]; then
+        return 1
+    fi
+    local ollama_args=("$tiff_path")
+    if [ -n "$ocr_text_path" ] && [ -f "$ocr_text_path" ]; then
+        ollama_args+=("$ocr_text_path")
+    fi
+    local start_time=$SECONDS
+    if result=$("$OLLAMA_FILE" "${ollama_args[@]}" 2>/dev/null); then
+        suggested_folder=$(echo "$result" | sed -n '1p')
+        suggested_file=$(echo "$result" | sed -n '2p')
+        if [ -n "$suggested_folder" ] && [ -n "$suggested_file" ]; then
+            echo "  Filed by Ollama in $((SECONDS - start_time))s."
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Try filing with cascade: primary -> fallback -> date-based last resort.
+# Args: pdf_path [tiff_path] [ocr_text_path]
+# Sets: suggested_folder, suggested_file
+try_ai_file() {
+    local pdf_path="$1"
+    local tiff_path="$2"
+    local ocr_text_path="$3"
+    suggested_folder=""
+    suggested_file=""
+
+    if [ "$AI_PRIMARY" = "claude" ]; then
+        _try_claude "$pdf_path" || _try_ollama "$tiff_path" "$ocr_text_path" || true
+    else
+        _try_ollama "$tiff_path" "$ocr_text_path" || _try_claude "$pdf_path" || true
+    fi
+
+    if [ -z "$suggested_folder" ] || [ -z "$suggested_file" ]; then
+        echo "AI unavailable. Using date-based filename."
+        suggested_folder="${SCAN_DIR:-/mnt/syno/scans}/unsorted"
+        suggested_file="scan-$(date +%Y%m%d-%H%M%S)"
+    fi
+}

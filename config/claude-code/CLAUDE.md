@@ -9,6 +9,14 @@ These apply to all projects.
 - Do not use em dashes. Use regular hyphens instead.
 - Never commit PHI, PII, secrets, credentials, API keys, tokens, or any sensitive data. Always review staged changes for sensitive content before committing.
 
+# Forked Repositories
+
+When working in a forked repo owned by the user (i.e. their own fork, not upstream):
+
+- **CLAUDE.md must exist.** If one is missing, create it. It should document the project structure, build/dev instructions, code style conventions, and a "Fork Changes" section listing all modifications made relative to upstream with enough detail to understand what was changed and where.
+- **README must acknowledge the fork.** Update the existing README (usually `.md` or `.rst`) to note that it is a personal fork near the top, and summarize fork-specific changes so they are visible to anyone browsing the repo. Do not remove upstream content -- add a fork notice above it.
+- Keep both files up to date when making further fork changes.
+
 # Claude Agent SDK
 
 The Agent SDK (`claude-agent-sdk` Python package) spawns the Claude Code CLI as a subprocess. It does not call the Anthropic API directly. This means:
