@@ -74,7 +74,10 @@ def sanitize(text: str) -> str:
     text = text.split("\n")[-1].strip()
     text = re.sub(r"\.(pdf|png|jpg|jpeg|tiff?)$", "", text, flags=re.IGNORECASE)
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-    text = re.sub(r"[^a-z0-9\-]", "", text.lower())
+    text = text.lower()
+    text = re.sub(r"\$", "", text)
+    text = re.sub(r"(\d)\.(\d)", r"\1-\2", text)
+    text = re.sub(r"[^a-z0-9\-]", "", text)
     text = re.sub(r"-+", "-", text).strip("-")
     return text
 

@@ -9,7 +9,7 @@
 #   - Minimal context lines (diff -U1) to reduce noise
 set -euo pipefail
 
-MODEL="${OLLAMA_MODEL:-llama3.2:3b}"
+MODEL="${OLLAMA_MODEL:-qwen3:8b}"
 
 # Must be in a git repo
 if ! git rev-parse --is-inside-work-tree &>/dev/null; then
@@ -180,8 +180,8 @@ echo ""
 
 # Prompt for acceptance
 while true; do
-    read -rp "[a]ccept / [e]dit / [r]egenerate / [q]uit? " choice
-    case "$choice" in
+    read -rp "[A]ccept / [e]dit / [r]egenerate / [q]uit? " choice
+    case "${choice:-a}" in
         a|A)
             break
             ;;
@@ -228,8 +228,8 @@ git add -A
 git commit -m "$message"
 
 echo ""
-read -rp "Push to $(git remote get-url origin 2>/dev/null || echo 'remote')? [y/n] " push_yn
-if [[ "$push_yn" =~ ^[yY]$ ]]; then
+read -rp "Push to $(git remote get-url origin 2>/dev/null || echo 'remote')? [Y/n] " push_yn
+if [[ "${push_yn:-y}" =~ ^[yY]$ ]]; then
     git push
     echo "Pushed."
 else
