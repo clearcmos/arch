@@ -181,30 +181,28 @@ else
     uv tool install git+https://github.com/clearcmos/instawow.git
 fi
 
-# --- Enable Services ---
+# --- Enable Services (config-free) ---
+# Services that need config deployed first are enabled inline in their own sections:
+#   bluetooth  (after config/bluetooth/main.conf)
+#   sshd       (after config/ssh/sshd_config)
+#   nftables   (after config/nftables/nftables.conf)
+#   fail2ban   (after config/fail2ban/jail.local)
+#   docker     (after config/docker/daemon.json)
+#   libvirtd   (after group memberships)
+#   cockpit    (after config/cockpit/cockpit.conf)
+#   ollama     (after systemd override for model path)
+#   xremap     (after udev rules and service file)
+#   ydotool    (after service file)
 
 info "Enabling services..."
-while IFS= read -r line || [[ -n "$line" ]]; do
-    # Skip comments and blanks
-    [[ -z "$line" || "$line" == \#* ]] && continue
-
-    if [[ "$line" == user:* ]]; then
-        svc="${line#user:}"
-        if systemctl --user is-enabled "$svc" &>/dev/null; then
-            info "  user service '$svc' already enabled."
-        else
-            systemctl --user enable --now "$svc"
-            info "  enabled user service '$svc'."
-        fi
+for svc in NetworkManager greetd pcscd tailscaled; do
+    if systemctl is-enabled "$svc" &>/dev/null; then
+        info "  $svc already enabled."
     else
-        if systemctl is-enabled "$line" &>/dev/null; then
-            info "  service '$line' already enabled."
-        else
-            sudo systemctl enable --now "$line"
-            info "  enabled and started service '$line'."
-        fi
+        sudo systemctl enable --now "$svc"
+        info "  enabled and started $svc."
     fi
-done < "$SCRIPT_DIR/services.txt"
+done
 
 # Ensure pcscd is running (socket-activated but needed before YubiKey steps)
 if ! systemctl is-active pcscd &>/dev/null; then
@@ -475,6 +473,12 @@ else
     chmod 600 "$HOME/.ssh/authorized_keys"
     info "  deployed authorized_keys."
 fi
+if systemctl is-enabled sshd &>/dev/null; then
+    info "  sshd already enabled."
+else
+    sudo systemctl enable --now sshd
+    info "  enabled and started sshd."
+fi
 
 # --- Deploy Configs ---
 
@@ -516,6 +520,12 @@ if ! diff -q "$SCRIPT_DIR/config/bluetooth/main.conf" /etc/bluetooth/main.conf &
     info "  copied /etc/bluetooth/main.conf"
 else
     info "  /etc/bluetooth/main.conf already up to date."
+fi
+if systemctl is-enabled bluetooth &>/dev/null; then
+    info "  bluetooth already enabled."
+else
+    sudo systemctl enable --now bluetooth
+    info "  enabled and started bluetooth."
 fi
 
 # WirePlumber Bluetooth audio (codecs, roles, hardware volume)
@@ -921,6 +931,22 @@ if ! diff -q "$SCRIPT_DIR/config/cups/cupsd.conf" /etc/cups/cupsd.conf &>/dev/nu
     info "  deployed cupsd.conf and restarted CUPS."
 else
     info "  cupsd.conf already up to date."
+fi
+
+# --- Ollama ---
+
+info "Configuring Ollama..."
+sudo mkdir -p /etc/systemd/system/ollama.service.d
+if ! diff -q "$SCRIPT_DIR/config/systemd/ollama.service.d/override.conf" /etc/systemd/system/ollama.service.d/override.conf &>/dev/null; then
+    sudo cp "$SCRIPT_DIR/config/systemd/ollama.service.d/override.conf" /etc/systemd/system/ollama.service.d/override.conf
+    sudo systemctl daemon-reload
+    info "  deployed ollama override (OLLAMA_MODELS=/mnt/data/ollama/)."
+fi
+if systemctl is-enabled ollama &>/dev/null; then
+    info "  ollama already enabled."
+else
+    sudo systemctl enable --now ollama
+    info "  enabled and started ollama."
 fi
 
 # --- Cockpit ---

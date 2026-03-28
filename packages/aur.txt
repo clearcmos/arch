@@ -2,6 +2,7 @@
 1password-cli
 brave-bin
 brother-dcp7060d
+claude-desktop-appimage
 brscan4
 curseforge
 devilutionx

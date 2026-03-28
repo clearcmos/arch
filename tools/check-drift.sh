@@ -141,6 +141,7 @@ check "$REPO_DIR/config/udev/99-usb-hub-bt-toggle.rules" "/etc/udev/rules.d/99-u
 check "$REPO_DIR/config/systemd/usb-hub-bt-off.service" "/etc/systemd/system/usb-hub-bt-off.service"
 check "$REPO_DIR/config/systemd/usb-hub-bt-on.service" "/etc/systemd/system/usb-hub-bt-on.service"
 check "$REPO_DIR/config/udev/99-xremap.rules" "/etc/udev/rules.d/99-xremap.rules"
+check "$REPO_DIR/config/systemd/ollama.service.d/override.conf" "/etc/systemd/system/ollama.service.d/override.conf"
 
 # Summary
 echo ""

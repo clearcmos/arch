@@ -6,8 +6,8 @@ Idempotent Arch Linux post-install setup script and config files for a personal 
 
 - `setup.sh` - Main bash script. Idempotent: uses `--needed` flags, `command -v` guards, and `systemctl is-enabled` checks so re-runs are safe.
 - `packages/official.txt` - Pacman packages, one per line, alphabetically sorted. This is the single source of truth for all official packages.
-- `packages/aur.txt` - AUR packages (installed via paru), same format.
-- `services.txt` - Systemd services to enable. Lines prefixed with `user:` are user-level services.
+- `packages/aur.txt` - AUR packages (installed via paru), same format. Does not include custom forks or bootstrapped packages (paru, lite-xl-custom, foot-custom) -- those are built directly from GitHub repos in setup.sh via `makepkg -si` with a `pacman -Q` guard for idempotency.
+- All systemd service enables are inline in `setup.sh`, co-located with their config deployment. Config-free services (NetworkManager, greetd, pcscd, tailscaled) are enabled early; config-dependent services are enabled after their config is deployed.
 - `config/` - Config files deployed to `~/.config/` or `/etc/`. KDE configs are copied (KConfig's atomic writes break symlinks). Non-KDE user configs are symlinked. System configs under `/etc/` are copied (require root ownership).
 - `install/` - archinstall config and installer script. `user_configuration.json` has system settings (disk, locale) and a minimal boot-only package set (just enough for KDE + network + terminal). All other packages live in `packages/official.txt` and are installed by `setup.sh`. `install.sh` is the entry point -- it prompts for passwords, hashes them, writes a temporary credentials file, and runs archinstall. The disk `device` field uses `/dev/disk/by-id/` (serial-based) instead of `/dev/nvmeXnY` because NVMe device numbering is not stable across reboots. No passwords or secrets are stored in the repo.
 
@@ -30,18 +30,19 @@ After reboot, log in via tuigreet — a konsole window opens automatically and r
 3. AUR helper (paru) if missing
 4. Rust via rustup if missing (removes distro `rust` package if present)
 5. AUR packages (paru)
-6. Nix via Determinate Systems installer if missing
-7. Claude Code if missing
-8. Enable and start systemd services (including `pcscd` for YubiKey)
-9. AMD GPU kernel params
-10. Font rendering (system-level fontconfig in `/etc/fonts/conf.d/`)
-11. KDE settings (lock screen, hot corners, dark theme)
-12. Mount points (data disk + NAS, explicit mount for mid-script access)
-13. SSH key restore from NAS (age-encrypted, YubiKey decryption — prompts for YubiKey)
-14. Git/GitHub config (interactive `gh auth login` with YubiKey passkey)
-15. SSH server config
-16. Deploy config files (copy KDE configs including monitor layout, symlink the rest)
-17. Bluetooth pairing (background scan with polling)
+6. Custom forks (lite-xl-custom, foot-custom) built from GitHub via makepkg if missing
+7. Nix via Determinate Systems installer if missing
+8. Claude Code if missing
+9. Enable and start systemd services (including `pcscd` for YubiKey)
+10. AMD GPU kernel params
+11. Font rendering (system-level fontconfig in `/etc/fonts/conf.d/`)
+12. KDE settings (lock screen, hot corners, dark theme)
+13. Mount points (data disk + NAS, explicit mount for mid-script access)
+14. SSH key restore from NAS (age-encrypted, YubiKey decryption — prompts for YubiKey)
+15. Git/GitHub config (interactive `gh auth login` with YubiKey passkey)
+16. SSH server config
+17. Deploy config files (copy KDE configs including monitor layout, symlink the rest)
+18. Bluetooth pairing (background scan with polling)
 
 ## Desktop Environment
 
@@ -89,6 +90,20 @@ Detects when deployed config copies have diverged from the repo. Only **copied**
 ## Python Virtual Environment
 
 A shared Python venv lives at `~/arch/.venv/` (gitignored). Use this for any Python dependencies needed by scripts or tools. Activate with `~/arch/.venv/bin/python` or `~/arch/.venv/bin/pip`.
+
+## System Audit
+
+Compare live system state against what the repo declares. Run when asked to "audit my system" or "system audit." Check for:
+
+- Packages explicitly installed (`pacman -Qqe`) but not in `official.txt`, `aur.txt`, the archinstall JSON, or setup.sh's custom fork builds.
+- Packages in `official.txt`/`aur.txt` but not actually installed.
+- Enabled systemd services (system and user) not in setup.sh.
+- Config directories in `~/.config/` not managed by the repo's `config/`.
+- Manual binaries in `/usr/local/bin/`, `~/.local/bin/`, `~/.cargo/bin/` not accounted for.
+- Flatpaks, nix profiles, uv tools, npm globals, and other non-pacman package state.
+- Systemd timers and cron jobs.
+
+When reporting, distinguish between things that should be declared (action needed) and things that are legitimately handled elsewhere (archinstall, setup.sh bootstrap, package dependencies).
 
 ## Key Conventions
 
