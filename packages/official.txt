@@ -79,6 +79,7 @@ ollama-rocm
 openai-codex
 openssl
 openssh
+pacman-contrib
 pandoc-cli
 parted
 pciutils
