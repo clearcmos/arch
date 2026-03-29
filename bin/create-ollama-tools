@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Create a qwen2.5-coder:14b variant with tool call parsing enabled.
+# The stock model lacks a parser config, so <tool_call> XML passes through
+# as text. Adding PARSER qwen3 makes Ollama parse it into structured tool calls.
+
+set -euo pipefail
+
+MODEL="qwen2.5-coder:14b-tools"
+BASE="qwen2.5-coder:14b"
+
+MODELFILE=$(mktemp)
+trap 'rm -f "$MODELFILE"' EXIT
+
+cat << 'EOF' > "$MODELFILE"
+FROM qwen2.5-coder:14b
+PARSER qwen3
+EOF
+
+echo "Creating $MODEL from $BASE..."
+ollama create "$MODEL" -f "$MODELFILE"
+echo "Done. Use model name: $MODEL"

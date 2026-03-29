@@ -374,7 +374,7 @@ else
     warn "  /mnt/syno failed to mount — NAS steps will be skipped."
 fi
 
-# --- SSH Key (restore from NAS, encrypted with YubiKey) ---
+# --- SSH Key (restore from NAS, passphrase-encrypted) ---
 
 info "Restoring SSH key..."
 SSH_KEY="$HOME/.ssh/id_ed25519"
@@ -387,19 +387,12 @@ else
         mkdir -p "$HOME/.ssh"
         chmod 700 "$HOME/.ssh"
         echo ""
-        echo "  SSH key restore requires YubiKey."
-        read -r -p "  Is your YubiKey plugged in? [Y/n] " yk_ready
-        if [[ "$yk_ready" =~ ^[Nn]$ ]]; then
-            warn "  skipping SSH key restore. Re-run setup.sh with YubiKey plugged in."
-        else
-        info "  decrypting SSH key from NAS (touch YubiKey when it blinks)..."
-        age -d -i "$SCRIPT_DIR/config/age/yubikey-identity.txt" \
-            -o "$SSH_KEY" "$SSH_BACKUP_DIR/id_ed25519.age"
+        info "  decrypting SSH key from NAS (enter passphrase)..."
+        age -d -o "$SSH_KEY" "$SSH_BACKUP_DIR/id_ed25519.age"
         chmod 600 "$SSH_KEY"
         cp "$SSH_BACKUP_DIR/id_ed25519.pub" "$HOME/.ssh/id_ed25519.pub"
         chmod 644 "$HOME/.ssh/id_ed25519.pub"
         info "  SSH key restored."
-        fi
     else
         warn "  no SSH backup found at $SSH_BACKUP_DIR, skipping."
         warn "  generate a key manually: ssh-keygen -t ed25519"
@@ -427,7 +420,7 @@ if command -v gh &>/dev/null; then
     else
         echo ""
         echo "  GitHub CLI is not authenticated."
-        echo "  This will open a browser — sign in with your YubiKey passkey."
+        echo "  This will open a browser — sign in to GitHub to authorize the CLI."
         read -r -p "  Set up GitHub CLI now? [Y/n] " gh_auth
         if [[ ! "$gh_auth" =~ ^[Nn]$ ]]; then
             gh auth login --hostname github.com --git-protocol ssh --web --skip-ssh-key || true

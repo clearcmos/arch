@@ -1,0 +1,550 @@
+#!/home/nicholas/arch/.venv/bin/python
+"""Scan repos for uncommitted/unpushed work and sync them.
+
+Uses Ollama (qwen3:8b) by default to review diffs and propose commit messages,
+with Claude (Opus) as fallback. Provider order is configurable via
+config/ai/provider.conf or AI_PRIMARY env var.
+
+The user confirms each message before anything is committed or pushed.
+
+Usage:
+    reposync              # scan and process all repos
+    reposync --dry-run    # just report status, don't commit/push
+"""
+
+import asyncio
+import json
+import os
+import subprocess
+import sys
+import urllib.request
+
+REPO_ROOTS = [
+    os.path.expanduser("~/arch"),
+    os.path.expanduser("~/git"),
+]
+
+OLLAMA_URL = os.environ.get("AI_API_URL", "http://localhost:11434")
+OLLAMA_MODEL = "qwen3:8b"
+PROVIDER_CONF = os.path.expanduser("~/arch/config/ai/provider.conf")
+
+
+# ---------------------------------------------------------------------------
+# Provider resolution
+# ---------------------------------------------------------------------------
+
+def get_primary_provider() -> str:
+    """Resolve provider: AI_PRIMARY env > AI_PRIMARY_REPOSYNC in conf > AI_PRIMARY in conf > ollama."""
+    if p := os.environ.get("AI_PRIMARY"):
+        return p
+    if os.path.isfile(PROVIDER_CONF):
+        conf = {}
+        with open(PROVIDER_CONF) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    conf[k.strip()] = v.strip()
+        if v := conf.get("AI_PRIMARY_REPOSYNC"):
+            return v
+        if v := conf.get("AI_PRIMARY"):
+            return v
+    return "ollama"
+
+
+# ---------------------------------------------------------------------------
+# Git helpers
+# ---------------------------------------------------------------------------
+
+def find_repos() -> list[str]:
+    """Find all git repos across all roots."""
+    repos = []
+    for root in REPO_ROOTS:
+        if not os.path.isdir(root):
+            continue
+        if os.path.isdir(os.path.join(root, ".git")):
+            repos.append(root)
+            continue
+        for entry in sorted(os.listdir(root)):
+            path = os.path.join(root, entry)
+            if os.path.isdir(os.path.join(path, ".git")):
+                repos.append(path)
+    return repos
+
+
+def git(repo: str, *args: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", repo, *args],
+        capture_output=True, text=True, timeout=30,
+    )
+    return result.stdout.strip()
+
+
+def find_push_remote(repo: str) -> str | None:
+    remotes = git(repo, "remote", "-v")
+    if not remotes:
+        return None
+    for line in remotes.splitlines():
+        if "clearcmos/" in line and "(push)" in line:
+            return line.split()[0]
+    return None
+
+
+def repo_status(repo: str) -> dict:
+    status = git(repo, "status", "--porcelain")
+    has_dirty = bool(status)
+
+    push_remote = find_push_remote(repo)
+    branch = git(repo, "rev-parse", "--abbrev-ref", "HEAD")
+
+    unpushed = ""
+    if push_remote and branch:
+        remote_ref = f"{push_remote}/{branch}"
+        check = subprocess.run(
+            ["git", "-C", repo, "rev-parse", "--verify", remote_ref],
+            capture_output=True, text=True, timeout=30,
+        )
+        if check.returncode == 0:
+            unpushed = git(repo, "log", "--oneline", f"{remote_ref}..HEAD")
+
+    return {
+        "dirty": has_dirty,
+        "unpushed": bool(unpushed),
+        "has_upstream": bool(push_remote),
+        "push_remote": push_remote,
+        "branch": branch,
+        "status_lines": status,
+        "unpushed_lines": unpushed,
+    }
+
+
+def repo_label(repo: str) -> str:
+    home = os.path.expanduser("~")
+    return os.path.relpath(repo, home)
+
+
+# ---------------------------------------------------------------------------
+# Ollama commit proposal
+# ---------------------------------------------------------------------------
+
+def ollama_generate(prompt: str, max_tokens: int = 256) -> str | None:
+    """Call Ollama generate API, return parsed response text."""
+    payload = json.dumps({
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "format": "json",
+        "stream": False,
+        "options": {"temperature": 0, "num_predict": max_tokens},
+    }).encode()
+    req = urllib.request.Request(
+        f"{OLLAMA_URL}/api/generate",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read())
+    except Exception:
+        return None
+    return data.get("response") or data.get("thinking")
+
+
+def build_changes_context(repo: str) -> str:
+    """Build a diff context string, using per-file summarization for large diffs."""
+    diff = git(repo, "diff", "-U1", "HEAD")
+    if not diff:
+        diff = git(repo, "diff", "-U1", "--cached")
+
+    untracked = git(repo, "ls-files", "--others", "--exclude-standard")
+
+    # Small diff - include directly
+    total = len(diff) + len(untracked) * 50
+    if total <= 4000:
+        ctx = f"<diff>\n{diff}\n</diff>"
+        if untracked:
+            for f in untracked.splitlines():
+                preview = ""
+                fpath = os.path.join(repo, f)
+                if os.path.isfile(fpath):
+                    try:
+                        with open(fpath) as fh:
+                            preview = " ".join(fh.read(500).splitlines())[:200]
+                    except Exception:
+                        pass
+                ctx += f"\n- {f}: new file - {preview}"
+        return ctx
+
+    # Large diff - summarize per file
+    summaries = []
+    changed = git(repo, "diff", "--name-only", "HEAD")
+    if not changed:
+        changed = git(repo, "diff", "--name-only", "--cached")
+
+    for fpath in changed.splitlines():
+        if not fpath:
+            continue
+        file_diff = git(repo, "diff", "-U1", "HEAD", "--", fpath)
+        if not file_diff:
+            file_diff = git(repo, "diff", "-U1", "--cached", "--", fpath)
+        if not file_diff:
+            continue
+        if len(file_diff) > 3000:
+            file_diff = file_diff[:3000] + "\n... (truncated)"
+
+        raw = ollama_generate(
+            f'Summarize this git diff in one sentence. Output JSON: {{"summary": "..."}}\n\n<diff>\n{file_diff}\n</diff>',
+            100,
+        )
+        if raw:
+            try:
+                summary = json.loads(raw).get("summary", "")
+                if summary:
+                    summaries.append(f"- {fpath}: {summary}")
+                    continue
+            except (json.JSONDecodeError, AttributeError):
+                pass
+        summaries.append(f"- {fpath}: modified")
+
+    if untracked:
+        for f in untracked.splitlines():
+            if not f:
+                continue
+            preview = ""
+            full = os.path.join(repo, f)
+            if os.path.isfile(full):
+                try:
+                    with open(full) as fh:
+                        preview = " ".join(fh.read(500).splitlines())[:200]
+                except Exception:
+                    pass
+            summaries.append(f"- {f}: new file - {preview}")
+
+    return "<per-file-summaries>\n" + "\n".join(summaries) + "\n</per-file-summaries>"
+
+
+COMMIT_PROMPT_TEMPLATE = """You are a git commit message writer. Analyze the changes below.
+
+Step 1: Write a summary of ALL the changes (what was added, modified, removed).
+Step 2: From YOUR summary, extract one short commit title.
+
+Respond in JSON: {{"summary": "...", "title": "..."}}
+
+Title rules:
+- Max 150 chars, but shorter is better - be concise
+- Lowercase after first word, no period
+- Start with a verb: Add (new feature/file), Update (changed behavior), Fix (bug), Refactor (restructure), Remove (deletion)
+- Only use Fix for actual bugs. New guards/checks/features use Add
+- For many changes: find the 2-3 main themes, do NOT list every change
+- Rephrase your summary into a clear, specific title - not a shortened version
+
+{changes}"""
+
+# Files that should never be committed regardless of content
+SENSITIVE_PATTERNS = (".env", ".secret", "credentials", "token", ".key", ".pem")
+
+
+def get_all_changed_files(repo: str) -> list[str]:
+    """Get the full list of changed + untracked files from git."""
+    changed = git(repo, "diff", "--name-only", "HEAD")
+    if not changed:
+        changed = git(repo, "diff", "--name-only", "--cached")
+    untracked = git(repo, "ls-files", "--others", "--exclude-standard")
+
+    files = []
+    if changed:
+        files.extend(f for f in changed.splitlines() if f)
+    if untracked:
+        files.extend(f for f in untracked.splitlines() if f)
+    return files
+
+
+def filter_sensitive(files: list[str]) -> tuple[list[str], list[str]]:
+    """Split files into safe and sensitive based on filename patterns."""
+    safe = []
+    sensitive = []
+    for f in files:
+        basename = os.path.basename(f).lower()
+        if any(pat in basename for pat in SENSITIVE_PATTERNS):
+            sensitive.append(f)
+        else:
+            safe.append(f)
+    return safe, sensitive
+
+
+def propose_ollama(repo: str) -> dict | None:
+    """Use Ollama to propose a commit message."""
+    changes = build_changes_context(repo)
+    prompt = COMMIT_PROMPT_TEMPLATE.format(changes=changes)
+
+    all_files = get_all_changed_files(repo)
+    safe_files, sensitive_files = filter_sensitive(all_files)
+
+    raw = ollama_generate(prompt, 512)
+    if not raw:
+        return None
+
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+    title = data.get("title", "")
+    if not title:
+        return None
+
+    warnings = ""
+    if sensitive_files:
+        warnings = f"Excluded potentially sensitive files: {', '.join(sensitive_files)}"
+
+    return {"message": title, "files": safe_files, "warnings": warnings}
+
+
+# ---------------------------------------------------------------------------
+# Claude commit proposal (fallback)
+# ---------------------------------------------------------------------------
+
+async def propose_claude(repo: str) -> dict | None:
+    """Use Claude SDK to propose a commit message."""
+    from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "message": {
+                "type": "string",
+                "description": "Commit message, max 150 chars but keep it concise",
+            },
+            "files": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Files to stage (paths relative to repo root)",
+            },
+            "warnings": {
+                "type": "string",
+                "description": "Any warnings about secrets or sensitive files found, or empty string",
+            },
+        },
+        "required": ["message", "files", "warnings"],
+    }
+
+    prompt = f"""You are reviewing changes in the git repo at {repo}.
+
+Run `git status` and `git diff` to understand the changes. Also run `git diff --cached` if there are staged changes.
+
+Review all changes for secrets, credentials, API keys, tokens, .env files, or sensitive data. If you find any, exclude those files and note them in warnings.
+
+Propose a commit message and list of files to stage. Follow conventional style: start with a verb (Add, Update, Fix, Remove, Refactor), lowercase after first word, no period. Keep it concise but descriptive - max 150 chars, shorter is better. Do NOT add Co-Authored-By lines.
+
+Return JSON with: message (the commit message), files (array of file paths to stage), warnings (any security concerns, or empty string).
+
+If there are no meaningful changes to commit, return an empty files array and set message to empty string."""
+
+    result_msg = None
+    async for msg in query(
+        prompt=prompt,
+        options=ClaudeAgentOptions(
+            cwd=repo,
+            allowed_tools=["Bash", "Read", "Grep", "Glob"],
+            permission_mode="bypassPermissions",
+            model="opus",
+            max_turns=10,
+            output_format={"type": "json_schema", "schema": schema},
+        ),
+    ):
+        if isinstance(msg, ResultMessage):
+            result_msg = msg
+
+    if not result_msg or result_msg.is_error:
+        return None
+
+    parsed = None
+    if result_msg.structured_output is not None:
+        if isinstance(result_msg.structured_output, str):
+            parsed = json.loads(result_msg.structured_output)
+        elif isinstance(result_msg.structured_output, dict):
+            parsed = result_msg.structured_output
+
+    if parsed is None and result_msg.result:
+        parsed = json.loads(result_msg.result)
+
+    return parsed
+
+
+# ---------------------------------------------------------------------------
+# Proposal with cascade
+# ---------------------------------------------------------------------------
+
+async def propose_commit(repo: str) -> dict | None:
+    """Propose a commit message using the configured provider cascade."""
+    primary = get_primary_provider()
+
+    if primary == "claude":
+        proposal = await propose_claude(repo)
+        if proposal:
+            return proposal
+        print("  Claude failed, falling back to Ollama...")
+        return propose_ollama(repo)
+    else:
+        proposal = propose_ollama(repo)
+        if proposal:
+            return proposal
+        print("  Ollama failed, falling back to Claude...")
+        return await propose_claude(repo)
+
+
+# ---------------------------------------------------------------------------
+# Sync logic
+# ---------------------------------------------------------------------------
+
+async def sync_repo(repo: str, info: dict) -> str:
+    label = repo_label(repo)
+    print(f"\n--- {label} ---")
+
+    # If only unpushed (no dirty files), just offer to push
+    if info["unpushed"] and not info["dirty"]:
+        print(f"  {info['unpushed_lines']}")
+        try:
+            answer = input("  Push these commits? [Y/n/s(kip)] ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\n  Skipped.")
+            return "skipped"
+
+        if answer in ("s", "skip"):
+            return "skipped"
+        if answer in ("", "y", "yes"):
+            remote = info["push_remote"] or "origin"
+            branch = info["branch"]
+            result = subprocess.run(
+                ["git", "-C", repo, "push", remote, branch],
+                capture_output=True, text=True, timeout=60,
+            )
+            if result.returncode == 0:
+                print("  Pushed.")
+                return "synced"
+            else:
+                print(f"  Push failed: {result.stderr.strip()}")
+                return "failed"
+        return "skipped"
+
+    # Dirty repo - propose a commit message
+    print("  Analyzing changes...")
+    proposal = await propose_commit(repo)
+
+    if not proposal:
+        print("  Failed to generate proposal.")
+        return "failed"
+
+    if proposal.get("warnings"):
+        print(f"  WARNING: {proposal['warnings']}")
+
+    if not proposal.get("files") or not proposal.get("message"):
+        print("  No changes to commit.")
+        return "skipped"
+
+    print(f"  Files: {', '.join(proposal['files'])}")
+    print(f"  Message: {proposal['message']}")
+
+    try:
+        answer = input("  Commit and push? [Y/n/s(kip)] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print("\n  Skipped.")
+        return "skipped"
+
+    if answer in ("s", "skip"):
+        return "skipped"
+    if answer not in ("", "y", "yes"):
+        return "skipped"
+
+    # Stage files
+    for f in proposal["files"]:
+        subprocess.run(
+            ["git", "-C", repo, "add", "--", f],
+            capture_output=True, text=True, timeout=30,
+        )
+
+    # Commit
+    result = subprocess.run(
+        ["git", "-C", repo, "commit", "-m", proposal["message"]],
+        capture_output=True, text=True, timeout=30,
+    )
+    if result.returncode != 0:
+        print(f"  Commit failed: {result.stderr.strip()}")
+        return "failed"
+    print("  Committed.")
+
+    # Push
+    remote = find_push_remote(repo) or "origin"
+    branch = info["branch"]
+    result = subprocess.run(
+        ["git", "-C", repo, "push", remote, branch],
+        capture_output=True, text=True, timeout=60,
+    )
+    if result.returncode == 0:
+        print("  Pushed.")
+        return "synced"
+    else:
+        print(f"  Committed but push failed: {result.stderr.strip()}")
+        return "failed"
+
+
+async def main():
+    dry_run = "--dry-run" in sys.argv
+
+    repos = find_repos()
+    if not repos:
+        print("No git repos found.")
+        sys.exit(0)
+
+    print(f"Scanning {len(repos)} repos...\n")
+
+    needs_sync = []
+    clean = []
+    for repo in repos:
+        label = repo_label(repo)
+        info = repo_status(repo)
+
+        if info["dirty"] or info["unpushed"]:
+            needs_sync.append((repo, info))
+            marker = []
+            if info["dirty"]:
+                marker.append("uncommitted changes")
+            if info["unpushed"]:
+                marker.append("unpushed commits")
+            print(f"  [!] {label}: {', '.join(marker)}")
+        else:
+            clean.append(label)
+
+    if clean:
+        print(f"\n  {len(clean)} repos clean: {', '.join(clean)}")
+
+    if not needs_sync:
+        print("\nAll repos are clean and up to date.")
+        sys.exit(0)
+
+    print(f"\n{len(needs_sync)} repo(s) need syncing.")
+
+    if dry_run:
+        print("\n--dry-run: exiting.")
+        sys.exit(0)
+
+    synced = 0
+    skipped = 0
+    failed = 0
+    for repo, info in needs_sync:
+        try:
+            result = await sync_repo(repo, info)
+            if result == "synced":
+                synced += 1
+            elif result == "skipped":
+                skipped += 1
+            else:
+                failed += 1
+        except Exception as e:
+            print(f"  Failed: {e}")
+            failed += 1
+
+    print(f"\n=== Done: {synced} synced, {skipped} skipped, {failed} failed ===")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

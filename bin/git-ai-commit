@@ -122,7 +122,7 @@ Step 2: From YOUR summary, extract one short commit title.
 Respond in JSON: {\"summary\": \"...\", \"title\": \"...\"}
 
 Title rules:
-- MUST be under 72 chars - this is a hard limit
+- Max 150 chars, but shorter is better - be concise
 - Lowercase after first word, no period
 - Start with a verb: Add (new feature/file), Update (changed behavior), Fix (bug), Refactor (restructure), Remove (deletion)
 - Only use Fix for actual bugs. New guards/checks/features use Add

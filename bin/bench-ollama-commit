@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# Benchmark Ollama models for commit message generation.
+# Uses the same per-file summarization as git-ai-commit for large diffs.
+set -euo pipefail
+
+REPO="$HOME/arch"
+MODELS=("llama3.2:3b" "qwen3:4b" "qwen3:8b" "qwen2.5-coder:7b")
+
+diff_content=$(git -C "$REPO" diff -U1 HEAD 2>/dev/null || git -C "$REPO" diff -U1 --cached)
+untracked=$(git -C "$REPO" ls-files --others --exclude-standard 2>/dev/null)
+
+ollama_call() {
+    local model="$1"
+    local call_prompt="$2"
+    local max_tokens="${3:-256}"
+    local resp
+    resp=$(curl -s http://localhost:11434/api/generate -d "$(jq -n \
+        --arg model "$model" \
+        --arg prompt "$call_prompt" \
+        --argjson max "$max_tokens" \
+        '{model: $model, prompt: $prompt, format: "json", stream: false,
+          options: {temperature: 0, num_predict: $max}}')")
+    echo "$resp" | jq -r '
+        if (.response // "") != "" then .response
+        elif (.thinking // "") != "" then .thinking
+        else empty end' 2>/dev/null
+}
+
+# Build changes context using per-file summarization for large diffs,
+# same approach as git-ai-commit. Uses the model under test for summaries.
+build_changes() {
+    local model="$1"
+
+    if [ ${#diff_content} -le 4000 ]; then
+        echo "<diff>
+${diff_content}
+</diff>"
+        return
+    fi
+
+    echo "  Large diff - summarizing per file with $model..." >&2
+    local summaries=""
+
+    while IFS= read -r fpath; do
+        [ -z "$fpath" ] && continue
+        local file_diff
+        file_diff=$(git -C "$REPO" diff -U1 HEAD -- "$fpath" 2>/dev/null || git -C "$REPO" diff -U1 --cached -- "$fpath")
+        [ -z "$file_diff" ] && continue
+        if [ ${#file_diff} -gt 3000 ]; then
+            file_diff="${file_diff:0:3000}
+... (truncated)"
+        fi
+        local file_summary
+        file_summary=$(ollama_call "$model" "Summarize this git diff in one sentence. Output JSON: {\"summary\": \"...\"}
+
+<diff>
+${file_diff}
+</diff>" 100)
+        local one_line
+        one_line=$(echo "$file_summary" | jq -r '.summary // empty' 2>/dev/null)
+        if [ -n "$one_line" ]; then
+            summaries="${summaries}
+- ${fpath}: ${one_line}"
+            echo "    ${fpath}" >&2
+        fi
+    done < <(git -C "$REPO" diff --name-only HEAD 2>/dev/null || git -C "$REPO" diff --name-only --cached)
+
+    if [ -n "$untracked" ]; then
+        while IFS= read -r new_file; do
+            [ -z "$new_file" ] && continue
+            local preview
+            preview=$(head -5 "$REPO/$new_file" 2>/dev/null | tr '\n' ' ' | cut -c1-200)
+            summaries="${summaries}
+- ${new_file}: new file - ${preview}"
+            echo "    ${new_file} (new)" >&2
+        done <<< "$untracked"
+    fi
+
+    echo "<per-file-summaries>
+${summaries}
+</per-file-summaries>"
+}
+
+echo "Benchmarking Ollama commit proposals for $REPO"
+echo "Diff size: ${#diff_content} chars"
+echo ""
+
+for model in "${MODELS[@]}"; do
+    echo "--- $model ---"
+    start=$(date +%s%N)
+
+    changes=$(build_changes "$model")
+
+    prompt="You are a git commit message writer. Analyze the changes below.
+
+Step 1: Write a summary of ALL the changes (what was added, modified, removed).
+Step 2: From YOUR summary, extract one short commit title.
+
+Respond in JSON: {\"summary\": \"...\", \"title\": \"...\"}
+
+Title rules:
+- Max 150 chars, but shorter is better - be concise
+- Lowercase after first word, no period
+- Start with a verb: Add (new feature/file), Update (changed behavior), Fix (bug), Refactor (restructure), Remove (deletion)
+- Only use Fix for actual bugs. New guards/checks/features use Add
+- For many changes: find the 2-3 main themes, do NOT list every change
+- Rephrase your summary into a clear, specific title - not a shortened version
+
+${changes}"
+
+    raw=$(ollama_call "$model" "$prompt" 256)
+
+    end=$(date +%s%N)
+    elapsed=$(( (end - start) / 1000000 ))
+    secs=$(python3 -c "print(f'{$elapsed/1000:.1f}')")
+
+    title=$(echo "$raw" | jq -r '.title // empty' 2>/dev/null)
+    summary=$(echo "$raw" | jq -r '.summary // empty' 2>/dev/null)
+
+    echo "  Time:    ${secs}s"
+    if [ -n "$title" ]; then
+        echo "  Message: $title"
+        echo "  Summary: $summary"
+    else
+        echo "  FAILED to parse JSON"
+        echo "  Raw: $(echo "$raw" | head -3)"
+    fi
+    echo ""
+done

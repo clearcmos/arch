@@ -1,0 +1,114 @@
+#!/home/nicholas/arch/.venv/bin/python
+"""Benchmark opus vs sonnet vs haiku for reposync commit proposals."""
+
+import asyncio
+import json
+import time
+
+from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+
+REPO = "/home/nicholas/arch"
+MODELS = ["haiku", "sonnet", "opus"]
+
+SCHEMA = {
+    "type": "object",
+    "properties": {
+        "message": {
+            "type": "string",
+            "description": "Commit message, under 72 chars",
+        },
+        "files": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Files to stage (paths relative to repo root)",
+        },
+        "warnings": {
+            "type": "string",
+            "description": "Any warnings about secrets or sensitive files found, or empty string",
+        },
+    },
+    "required": ["message", "files", "warnings"],
+}
+
+PROMPT = f"""You are reviewing changes in the git repo at {REPO}.
+
+Run `git status` and `git diff` to understand the changes. Also run `git diff --cached` if there are staged changes.
+
+Review all changes for secrets, credentials, API keys, tokens, .env files, or sensitive data. If you find any, exclude those files and note them in warnings.
+
+Propose a commit message and list of files to stage. Follow conventional style: start with a verb (Add, Update, Fix, Remove, Refactor), under 72 chars, lowercase after first word, no period. Do NOT add Co-Authored-By lines.
+
+Return JSON with: message (the commit message), files (array of file paths to stage), warnings (any security concerns, or empty string).
+
+If there are no meaningful changes to commit, return an empty files array and set message to empty string."""
+
+
+async def run_model(model: str) -> dict:
+    start = time.time()
+    result_msg = None
+
+    async for msg in query(
+        prompt=PROMPT,
+        options=ClaudeAgentOptions(
+            cwd=REPO,
+            allowed_tools=["Bash", "Read", "Grep", "Glob"],
+            permission_mode="bypassPermissions",
+            model=model,
+            max_turns=10,
+            output_format={"type": "json_schema", "schema": SCHEMA},
+        ),
+    ):
+        if isinstance(msg, ResultMessage):
+            result_msg = msg
+
+    elapsed = time.time() - start
+
+    parsed = None
+    if result_msg and not result_msg.is_error:
+        if result_msg.structured_output is not None:
+            if isinstance(result_msg.structured_output, str):
+                parsed = json.loads(result_msg.structured_output)
+            elif isinstance(result_msg.structured_output, dict):
+                parsed = result_msg.structured_output
+        if parsed is None and result_msg.result:
+            try:
+                parsed = json.loads(result_msg.result)
+            except json.JSONDecodeError:
+                pass
+
+    return {
+        "model": model,
+        "elapsed": elapsed,
+        "parsed": parsed,
+        "error": result_msg.is_error if result_msg else True,
+        "raw": result_msg.result if result_msg else None,
+    }
+
+
+async def main():
+    print(f"Benchmarking commit proposals for {REPO}")
+    print(f"Models: {', '.join(MODELS)}\n")
+
+    for model in MODELS:
+        print(f"--- {model} ---")
+        result = await run_model(model)
+        elapsed = result["elapsed"]
+
+        if result["error"] or not result["parsed"]:
+            print(f"  FAILED ({elapsed:.1f}s)")
+            if result["raw"]:
+                print(f"  Raw: {result['raw'][:200]}")
+            print()
+            continue
+
+        p = result["parsed"]
+        print(f"  Time:    {elapsed:.1f}s")
+        print(f"  Message: {p.get('message', '(none)')}")
+        print(f"  Files:   {p.get('files', [])}")
+        if p.get("warnings"):
+            print(f"  Warn:    {p['warnings']}")
+        print()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

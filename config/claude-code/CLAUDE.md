@@ -9,6 +9,17 @@ These apply to all projects.
 - Do not use em dashes. Use regular hyphens instead.
 - Never commit PHI, PII, secrets, credentials, API keys, tokens, or any sensitive data. Always review staged changes for sensitive content before committing.
 
+# KDE/KWin Window Debugging (Wayland)
+
+Standard X11 tools (wmctrl, xdotool, kdotool) do not work on Wayland. To inspect or manipulate windows on KDE Plasma Wayland:
+
+1. **Write a KWin script** (JavaScript) to `/tmp/` that iterates `workspace.windowList()` and logs properties via `console.log()`. Useful properties: `resourceClass`, `caption`, `fullScreen`, `noBorder`, `moveable`, `resizeable`, `frameGeometry`, `layer`, `keepAbove`, `skipTaskbar`.
+2. **Load the script** via D-Bus: `dbus-send --session --dest=org.kde.KWin --print-reply /Scripting org.kde.kwin.Scripting.loadScript string:/tmp/script.js string:"script_name"` - returns an int32 script ID (e.g. 1).
+3. **Run the script** via D-Bus: `dbus-send --session --dest=org.kde.KWin --print-reply /Scripting/Script<ID> org.kde.kwin.Script.run`
+4. **Read output** from the journal: `journalctl -t kwin_wayland -n 20 --no-pager`
+
+To modify window state, set properties in the script (e.g. `c.fullScreen = false`). The `queryWindowInfo` D-Bus method on `/KWin` only returns info for the currently active window, so the scripting approach is needed to find a specific window by class or caption.
+
 # Forked Repositories
 
 When working in a forked repo owned by the user (i.e. their own fork, not upstream):

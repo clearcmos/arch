@@ -48,6 +48,24 @@ After reboot, log in via tuigreet — a konsole window opens automatically and r
 
 KDE Plasma 6 on Wayland. Stack: KDE Plasma + KWin + greetd/tuigreet (login) + Thunar/Dolphin (file managers) + BreezeDark (theme).
 
+## AI Tooling
+
+Scripts in `bin/` use AI for document filing, commit message generation, and other automation. Two backends are supported:
+
+- **Ollama** (local) -- HTTP API at `localhost:11434`. Used for vision tasks (image-based document filing) and text tasks (commit messages, OCR-based filing). Models vary by script (vision models for images, small text models for lightweight tasks). No authentication required.
+- **Claude** (remote) -- Via the `claude-agent-sdk` Python package, which spawns the Claude Code CLI as a subprocess. Inherits CLI authentication from `~/.claude/.credentials.json` (no API key needed with a Max/Pro plan). Used when higher accuracy is needed (e.g. PDF reading where the model reads the file directly via its tool use).
+
+### Provider abstraction
+
+`bin/ai-provider` is a shared bash library that scripts source to get a `try_ai_file()` function. It implements a cascade: try the primary provider, fall back to the other, then fall back to a date-based default. Provider selection is configured in `config/ai/provider.conf` and can be overridden per-script or per-invocation via env vars. Environment defaults for Ollama (URL, model, backend type) live in `config/environment.d/30-ai.conf`.
+
+### Conventions for new AI scripts
+
+- Bash scripts call Ollama directly via `curl` to the HTTP API. Python scripts can use `urllib.request` or the `claude_agent_sdk`.
+- Scripts that use the Claude Agent SDK use the repo's Python venv (`~/arch/.venv/`) via a shebang of `#!/home/nicholas/arch/.venv/bin/python`.
+- AI scripts go in `bin/` and should fail gracefully (exit 1) so callers can fall back.
+- Shared logic (folder context gathering, filename sanitization, fuzzy matching, deduplication) is factored into importable helpers in `bin/` rather than duplicated.
+
 ## SSH Key Management
 
 SSH keys are encrypted with `age` + `age-plugin-yubikey` and stored on the NAS at `/mnt/syno/backups/ssh/cmos-arch/`. The YubiKey identity file lives in `config/age/yubikey-identity.txt` (safe to commit - just a slot reference). Decryption requires the physical YubiKey (PIN + touch). On fresh install, the script restores the key automatically.

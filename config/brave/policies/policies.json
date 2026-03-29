@@ -52,6 +52,16 @@
       "_name": "Merge Windows",
       "installation_mode": "normal_installed",
       "update_url": "https://clients2.google.com/service/update2/crx"
+    },
+    "cgfpgnepljlgenjclbekbjdlgcodfmjp": {
+      "_name": "Simple Tab Sorter",
+      "installation_mode": "normal_installed",
+      "update_url": "https://clients2.google.com/service/update2/crx"
+    },
+    "egbpddkgpjmliolmpjenjomflclekjld": {
+      "_name": "Unwanted Twitch",
+      "installation_mode": "normal_installed",
+      "update_url": "https://clients2.google.com/service/update2/crx"
     }
   }
 }
