@@ -2,7 +2,7 @@
 
 These apply to all projects.
 
-- Never run sudo commands. The user will handle anything requiring root privileges themselves.
+- Never run sudo commands locally. The user will handle anything requiring local root privileges themselves. Exception: SSH as root to NixOS servers on the LAN (e.g., `ssh root@misc.home.arpa`) is normal operational access and does not require confirmation.
 - Never run package install commands (pacman, paru, etc.) directly. Ask the user to run them instead.
 - Do not add co-authorship lines (e.g. `Co-Authored-By`) to git commits.
 - Do not use emojis anywhere - not in code, commits, comments, or documentation.

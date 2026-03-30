@@ -1,0 +1,76 @@
+#!/bin/bash
+# Focus Brave on the Twitch tab and maximize on the main monitor (DP-2)
+# Requires: --remote-debugging-port=9222 in brave-flags.conf, curl, jq
+
+set -euo pipefail
+
+CDP_PORT=9222
+MAIN_OUTPUT="DP-2"
+
+# Step 1: Find and activate the Twitch tab via CDP
+tabs=$(curl -s "http://localhost:${CDP_PORT}/json/list" 2>/dev/null) || {
+    notify-send "twitch-focus" "Brave CDP not available. Restart Brave to enable remote debugging."
+    exit 1
+}
+
+twitch_id=$(echo "$tabs" | jq -r '.[] | select(.url | test("twitch\\.tv")) | .id' | head -1)
+
+if [[ -z "$twitch_id" ]]; then
+    notify-send "twitch-focus" "No Twitch tab found in Brave."
+    exit 1
+fi
+
+# Activate the Twitch tab
+curl -s "http://localhost:${CDP_PORT}/json/activate/${twitch_id}" >/dev/null 2>&1
+
+# Brief pause for tab switch to register in window title
+sleep 0.3
+
+# Step 2: KWin script to move Brave to main monitor and maximize
+KWIN_SCRIPT=$(mktemp /tmp/twitch-focus-XXXXX.js)
+cat > "$KWIN_SCRIPT" << 'JSEOF'
+(function() {
+    var windows = workspace.windowList();
+    for (var i = 0; i < windows.length; i++) {
+        var w = windows[i];
+        if (w.resourceClass === "brave-browser" && w.caption.toLowerCase().indexOf("twitch") !== -1) {
+            // Find the main output (DP-2)
+            var outputs = workspace.screens;
+            var mainOutput = null;
+            for (var j = 0; j < outputs.length; j++) {
+                if (outputs[j].name === "DP-2") {
+                    mainOutput = outputs[j];
+                    break;
+                }
+            }
+            if (mainOutput) {
+                w.frameGeometry = {
+                    x: mainOutput.geometry.x,
+                    y: mainOutput.geometry.y,
+                    width: mainOutput.geometry.width,
+                    height: mainOutput.geometry.height
+                };
+                workspace.activeWindow = w;
+                w.setMaximize(true, true);
+            }
+            break;
+        }
+    }
+})();
+JSEOF
+
+# Load and run the KWin script
+SCRIPT_ID=$(dbus-send --session --dest=org.kde.KWin --print-reply \
+    /Scripting org.kde.kwin.Scripting.loadScript \
+    "string:${KWIN_SCRIPT}" "string:twitch_focus_$$" 2>/dev/null | grep int32 | awk '{print $2}')
+
+if [[ -n "$SCRIPT_ID" ]]; then
+    dbus-send --session --dest=org.kde.KWin --print-reply \
+        "/Scripting/Script${SCRIPT_ID}" org.kde.kwin.Script.run >/dev/null 2>&1
+    sleep 0.2
+    # Unload to allow re-running
+    dbus-send --session --dest=org.kde.KWin --print-reply \
+        "/Scripting/Script${SCRIPT_ID}" org.kde.kwin.Script.stop >/dev/null 2>&1
+fi
+
+rm -f "$KWIN_SCRIPT"
