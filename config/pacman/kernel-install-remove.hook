@@ -1,0 +1,10 @@
+[Trigger]
+Type = Path
+Operation = Remove
+Target = usr/lib/modules/*/vmlinuz
+
+[Action]
+Description = Removing old systemd-boot entries...
+When = PreTransaction
+Exec = /bin/sh -c 'while read -r f; do ver="${f#usr/lib/modules/}"; kernel-install remove "${ver%/vmlinuz}"; done'
+NeedsTargets

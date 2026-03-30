@@ -231,40 +231,109 @@ if ! systemctl is-active pcscd &>/dev/null; then
     info "  started pcscd (needed for YubiKey)."
 fi
 
+# --- Boot Entry Management (kernel-install / systemd-boot) ---
+
+info "Configuring kernel-install and systemd-boot..."
+
+# Set entry token to "arch" so boot entries are named arch-<version>.conf
+# (required for "default arch-*" in loader.conf to match correctly)
+if [[ "$(cat /etc/kernel/entry-token 2>/dev/null)" != "arch" ]]; then
+    echo "arch" | sudo tee /etc/kernel/entry-token >/dev/null
+    info "  set kernel-install entry token to 'arch'."
+else
+    info "  kernel-install entry token already set."
+fi
+
+# Mask mkinitcpio pacman hooks -- kernel-install's 50-mkinitcpio.install
+# plugin handles initrd generation. Without masking, mkinitcpio runs twice
+# per kernel upgrade (once from pacman hook, once from kernel-install plugin).
+for hook in 60-mkinitcpio-remove.hook 90-mkinitcpio-install.hook; do
+    if [[ ! -L "/etc/pacman.d/hooks/$hook" ]]; then
+        sudo mkdir -p /etc/pacman.d/hooks
+        sudo ln -sf /dev/null "/etc/pacman.d/hooks/$hook"
+        info "  masked $hook (kernel-install handles this)."
+    fi
+done
+
 # --- AMD GPU Kernel Params ---
 
 info "Configuring AMD GPU kernel parameters..."
 
-# Add amdgpu kernel params to /etc/kernel/cmdline (systemd-boot)
+# Build kernel cmdline for /etc/kernel/cmdline (used by kernel-install).
+# Do NOT include initrd= here -- kernel-install's 90-loaderentry.install
+# sets the initrd via the BLS entry's "initrd" field.
 KERNEL_PARAMS=(
     "amdgpu.gpu_recovery=1"
     "nmi_watchdog=0"
 )
-ALL_SET=true
+CMDLINE_CHANGED=false
+
+# Initialize cmdline from existing file or /proc/cmdline
+if [[ -f /etc/kernel/cmdline ]]; then
+    CMDLINE=$(cat /etc/kernel/cmdline)
+else
+    CMDLINE=$(cat /proc/cmdline)
+fi
+
+# Strip initrd= from cmdline (kernel-install handles initrd via BLS entry)
+CMDLINE_CLEAN=$(echo "$CMDLINE" | sed 's/initrd=[^ ]* *//')
+if [[ "$CMDLINE_CLEAN" != "$CMDLINE" ]]; then
+    CMDLINE="$CMDLINE_CLEAN"
+    CMDLINE_CHANGED=true
+fi
+
+# Add missing kernel params
 for param in "${KERNEL_PARAMS[@]}"; do
     key="${param%%=*}"
-    if ! grep -q "$key" /etc/kernel/cmdline 2>/dev/null; then
-        ALL_SET=false
-        break
+    if ! echo "$CMDLINE" | grep -q "$key"; then
+        CMDLINE="$CMDLINE $param"
+        CMDLINE_CHANGED=true
     fi
 done
-if $ALL_SET; then
-    info "  kernel cmdline params already set."
-else
-    if [[ -f /etc/kernel/cmdline ]]; then
-        CMDLINE=$(cat /etc/kernel/cmdline)
-    else
-        CMDLINE=$(cat /proc/cmdline)
-    fi
-    for param in "${KERNEL_PARAMS[@]}"; do
-        key="${param%%=*}"
-        if ! echo "$CMDLINE" | grep -q "$key"; then
-            CMDLINE="$CMDLINE $param"
-        fi
-    done
+
+if $CMDLINE_CHANGED; then
     echo "$CMDLINE" | sudo tee /etc/kernel/cmdline >/dev/null
-    sudo kernel-install add "$(uname -r)" /usr/lib/modules/"$(uname -r)"/vmlinuz
-    info "  added kernel params and regenerated boot entry."
+    info "  updated kernel cmdline."
+else
+    info "  kernel cmdline already up to date."
+fi
+
+# Ensure systemd-boot always boots the latest Arch kernel by default
+if ! grep -q '^default arch-\*' /boot/loader/loader.conf 2>/dev/null; then
+    sudo sed -i '/^default /d' /boot/loader/loader.conf
+    echo "default arch-*" | sudo tee -a /boot/loader/loader.conf >/dev/null
+    info "  set systemd-boot default to latest arch kernel."
+else
+    info "  systemd-boot default already set."
+fi
+
+# Remove stale archinstall boot entries (they reference /vmlinuz-linux which
+# is not updated by kernel-install and will boot old kernels after updates)
+for entry in /boot/loader/entries/*_linux.conf; do
+    [[ -e "$entry" ]] || continue
+    if grep -q "Created by: archinstall" "$entry"; then
+        sudo rm "$entry"
+        info "  removed stale archinstall boot entry: $(basename "$entry")"
+    fi
+done
+
+# Migrate from machine-id to arch entry token if old entries exist
+MACHINE_ID=$(cat /etc/machine-id)
+if [[ -d "/boot/$MACHINE_ID" ]]; then
+    sudo kernel-install add-all
+    sudo rm -rf "/boot/$MACHINE_ID"
+    # Remove old machine-id based entry files
+    for entry in /boot/loader/entries/"$MACHINE_ID"-*.conf; do
+        [[ -e "$entry" ]] || continue
+        sudo rm "$entry"
+    done
+    info "  migrated boot entries from machine-id to arch token."
+elif ! ls /boot/arch/*/linux &>/dev/null; then
+    # No boot entries exist yet (fresh install), create them
+    sudo kernel-install add-all
+    info "  created initial boot entries."
+else
+    info "  boot entries already using arch token."
 fi
 
 # --- Font Rendering (system-level fontconfig) ---
@@ -679,7 +748,7 @@ sudo cp "$SCRIPT_DIR/config/greetd/config.toml" /etc/greetd/config.toml
 sudo cp "$SCRIPT_DIR/config/greetd/pam-greetd" /etc/pam.d/greetd
 info "  deployed greetd config and PAM (KWallet auto-unlock)."
 
-# Pacman pre-upgrade safety check hook
+# Pacman hooks
 sudo mkdir -p /etc/pacman.d/hooks
 if ! diff -q "$SCRIPT_DIR/config/pacman/check-upgrades.hook" /etc/pacman.d/hooks/check-upgrades.hook &>/dev/null; then
     sudo cp "$SCRIPT_DIR/config/pacman/check-upgrades.hook" /etc/pacman.d/hooks/check-upgrades.hook
@@ -687,6 +756,14 @@ if ! diff -q "$SCRIPT_DIR/config/pacman/check-upgrades.hook" /etc/pacman.d/hooks
 else
     info "  pacman pre-upgrade hook already up to date."
 fi
+for hook in kernel-install.hook kernel-install-remove.hook; do
+    if ! diff -q "$SCRIPT_DIR/config/pacman/$hook" "/etc/pacman.d/hooks/$hook" &>/dev/null; then
+        sudo cp "$SCRIPT_DIR/config/pacman/$hook" "/etc/pacman.d/hooks/$hook"
+        info "  deployed $hook."
+    else
+        info "  $hook already up to date."
+    fi
+done
 
 # Quiet console (suppress noisy kernel messages on greetd TTY)
 sudo cp "$SCRIPT_DIR/config/sysctl/99-quiet-console.conf" /etc/sysctl.d/99-quiet-console.conf

@@ -128,6 +128,8 @@ check "$REPO_DIR/config/brave/policies/policies.json" "/etc/brave/policies/manag
 check "$REPO_DIR/config/greetd/config.toml" "/etc/greetd/config.toml"
 check "$REPO_DIR/config/greetd/pam-greetd" "/etc/pam.d/greetd"
 check "$REPO_DIR/config/pacman/check-upgrades.hook" "/etc/pacman.d/hooks/check-upgrades.hook"
+check "$REPO_DIR/config/pacman/kernel-install.hook" "/etc/pacman.d/hooks/kernel-install.hook"
+check "$REPO_DIR/config/pacman/kernel-install-remove.hook" "/etc/pacman.d/hooks/kernel-install-remove.hook"
 check "$REPO_DIR/config/sysctl/99-quiet-console.conf" "/etc/sysctl.d/99-quiet-console.conf"
 check "$REPO_DIR/config/sysctl/99-hardening.conf" "/etc/sysctl.d/99-hardening.conf"
 check "$REPO_DIR/config/security/faillock.conf" "/etc/security/faillock.conf"
