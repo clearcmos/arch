@@ -66,9 +66,23 @@ Scripts in `bin/` use AI for document filing, commit message generation, and oth
 - AI scripts go in `bin/` and should fail gracefully (exit 1) so callers can fall back.
 - Shared logic (folder context gathering, filename sanitization, fuzzy matching, deduplication) is factored into importable helpers in `bin/` rather than duplicated.
 
-## SSH Key Management
+## Key Backup and Restoration
 
-SSH keys are encrypted with `age` + `age-plugin-yubikey` and stored on the NAS at `/mnt/syno/backups/ssh/cmos-arch/`. The YubiKey identity file lives in `config/age/yubikey-identity.txt` (safe to commit - just a slot reference). Decryption requires the physical YubiKey (PIN + touch). On fresh install, the script restores the key automatically.
+SSH key and Nix store signing key are individually encrypted with `age -p` (passphrase) and stored on the NAS at `/mnt/syno/backups/cmos-arch/`. Each key uses its own passphrase (do not bundle into a single archive). The signing key is required for `nixos-rebuild --target-host` to misc/jimmich (servers trust the `cmos-arch` public key). On fresh install, `setup.sh` restores both keys automatically.
+
+```bash
+# Encrypt a key for backup
+age -e -p -o /mnt/syno/backups/cmos-arch/<name>.age /path/to/secret
+
+# Decrypt a key from backup
+age -d -o /path/to/secret /mnt/syno/backups/cmos-arch/<name>.age
+```
+
+| File | Purpose |
+|------|---------|
+| `id_ed25519.age` | SSH private key |
+| `id_ed25519.pub` | SSH public key (unencrypted) |
+| `nix-signing-key.age` | Nix store signing key (signs paths for remote rebuilds) |
 
 ## Security Model
 

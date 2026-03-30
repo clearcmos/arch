@@ -147,6 +147,27 @@ else
         | sh -s -- install --no-confirm
 fi
 
+# Nix store signing key (required for nixos-rebuild --target-host to misc/jimmich)
+NIX_SIGNING_KEY="/etc/nix/signing-key.sec"
+NIX_SIGNING_BACKUP="/mnt/syno/backups/cmos-arch/nix-signing-key.age"
+if [[ -f "$NIX_SIGNING_KEY" ]]; then
+    info "Nix signing key already exists, skipping."
+else
+    if [[ -f "$NIX_SIGNING_BACKUP" ]]; then
+        info "  decrypting Nix signing key from NAS (enter passphrase)..."
+        age -d -o "$NIX_SIGNING_KEY" "$NIX_SIGNING_BACKUP"
+        chmod 600 "$NIX_SIGNING_KEY"
+        info "  Nix signing key restored."
+    else
+        warn "  no Nix signing key backup found at $NIX_SIGNING_BACKUP, skipping."
+        warn "  generate one: nix key generate-secret --key-name cmos-arch > $NIX_SIGNING_KEY"
+    fi
+fi
+if ! grep -q 'secret-key-files' /etc/nix/nix.custom.conf 2>/dev/null; then
+    echo "secret-key-files = $NIX_SIGNING_KEY" | tee -a /etc/nix/nix.custom.conf
+    info "  added secret-key-files to nix.custom.conf."
+fi
+
 # --- Claude Code ---
 
 if [[ -e "$HOME/.local/bin/claude" ]]; then
@@ -378,7 +399,7 @@ fi
 
 info "Restoring SSH key..."
 SSH_KEY="$HOME/.ssh/id_ed25519"
-SSH_BACKUP_DIR="/mnt/syno/backups/ssh/cmos-arch"
+SSH_BACKUP_DIR="/mnt/syno/backups/cmos-arch"
 
 if [[ -f "$SSH_KEY" ]]; then
     info "  SSH key already exists, skipping."
