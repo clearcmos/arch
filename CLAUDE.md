@@ -68,14 +68,14 @@ Scripts in `bin/` use AI for document filing, commit message generation, and oth
 
 ## Key Backup and Restoration
 
-SSH key and Nix store signing key are individually encrypted with `age -p` (passphrase) and stored on the NAS at `/mnt/syno/backups/cmos-arch/`. Each key uses its own passphrase (do not bundle into a single archive). The signing key is required for `nixos-rebuild --target-host` to misc/jimmich (servers trust the `cmos-arch` public key). On fresh install, `setup.sh` restores both keys automatically.
+SSH key and Nix store signing key are individually encrypted with `age -p` (passphrase) and stored on the NAS at `/mnt/syno/backups/cmos/`. Each key uses its own passphrase (do not bundle into a single archive). The signing key is required for `nixos-rebuild --target-host` to misc/jimmich (servers trust the `cmos-arch` public key). On fresh install, `setup.sh` restores both keys automatically.
 
 ```bash
 # Encrypt a key for backup
-age -e -p -o /mnt/syno/backups/cmos-arch/<name>.age /path/to/secret
+age -e -p -o /mnt/syno/backups/cmos/<name>.age /path/to/secret
 
 # Decrypt a key from backup
-age -d -o /path/to/secret /mnt/syno/backups/cmos-arch/<name>.age
+age -d -o /path/to/secret /mnt/syno/backups/cmos/<name>.age
 ```
 
 | File | Purpose |

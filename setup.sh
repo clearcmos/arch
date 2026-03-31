@@ -149,7 +149,7 @@ fi
 
 # Nix store signing key (required for nixos-rebuild --target-host to misc/jimmich)
 NIX_SIGNING_KEY="/etc/nix/signing-key.sec"
-NIX_SIGNING_BACKUP="/mnt/syno/backups/cmos-arch/nix-signing-key.age"
+NIX_SIGNING_BACKUP="/mnt/syno/backups/cmos/nix-signing-key.age"
 if [[ -f "$NIX_SIGNING_KEY" ]]; then
     info "Nix signing key already exists, skipping."
 else
@@ -468,7 +468,7 @@ fi
 
 info "Restoring SSH key..."
 SSH_KEY="$HOME/.ssh/id_ed25519"
-SSH_BACKUP_DIR="/mnt/syno/backups/cmos-arch"
+SSH_BACKUP_DIR="/mnt/syno/backups/cmos"
 
 if [[ -f "$SSH_KEY" ]]; then
     info "  SSH key already exists, skipping."
@@ -707,7 +707,7 @@ link_config "$SCRIPT_DIR/config/op/secrets.env" "$HOME/.config/op/secrets.env"
 
 # Shell scripts -> ~/.local/bin/
 mkdir -p "$HOME/.local/bin"
-for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur check-upgrades-hook brave-reload-ext remove-pkg article2md article2pdf t; do
+for script in getrepo gpush gscan create-repo repo ghelp bt-toggle screen-off-toggle screen-off-watcher usb-hub-bt-off usb-hub-bt-on flushdns check-cert nuke-secret video myspace claude-clean mergepdf audit-pkgbuild audit-aur check-upgrades-hook brave-reload-ext remove-pkg install-pkg article2md article2pdf t; do
     chmod +x "$SCRIPT_DIR/config/shell/${script}.sh"
     ln -sf "$SCRIPT_DIR/config/shell/${script}.sh" "$HOME/.local/bin/$script"
 done

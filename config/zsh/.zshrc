@@ -29,6 +29,7 @@ export PATH="$HOME/arch/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
 export PATH="$HOME/.cargo/bin:$PATH"
 export PATH="$HOME/git/depot_tools:$PATH"
+export PATH="/mnt/syno/scripts/cmos:$PATH"
 
 # --- Plugins ---
 
