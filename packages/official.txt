@@ -45,6 +45,7 @@ kate
 kcalc
 konsole
 lib32-gamemode
+libreoffice-fresh
 lib32-mesa
 lib32-vulkan-radeon
 libfreeaptx
@@ -69,12 +70,12 @@ nftables
 nextcloud-client
 nmap
 nodejs
-nyxt
 noto-fonts
 noto-fonts-cjk
 noto-fonts-emoji
 npm
 obs-studio
+okular
 ollama-rocm
 openai-codex
 openssl
@@ -97,6 +98,7 @@ qt6-wayland
 radeontop
 rclone
 reaper
+rsync
 rustscan
 sane
 shellcheck
@@ -138,6 +140,7 @@ ydotool
 yt-dlp
 yubikey-manager
 zip
+zram-generator
 zsh
 zsh-autocomplete
 zsh-autosuggestions

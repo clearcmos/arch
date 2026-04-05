@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Toggle WAN access for SSH on/off by swapping the nftables rule.
+# Usage: ssh-wan on|off|status
+
+set -euo pipefail
+
+NFTABLES_CONF="/etc/nftables.conf"
+RULE_WAN='tcp dport ssh accept comment "allow sshd from anywhere (key-only)"'
+RULE_LAN='ip saddr 192.168.1.0/24 tcp dport ssh accept comment "allow sshd from LAN"'
+
+current_state() {
+    if grep -q "allow sshd from anywhere" "$NFTABLES_CONF" 2>/dev/null; then
+        echo "on"
+    elif grep -q "allow sshd from LAN" "$NFTABLES_CONF" 2>/dev/null; then
+        echo "off"
+    else
+        echo "unknown"
+    fi
+}
+
+case "${1:-status}" in
+    on)
+        state=$(current_state)
+        if [[ "$state" == "on" ]]; then
+            echo "SSH WAN access is already on."
+            exit 0
+        fi
+        sudo sed -i "s|.*$RULE_LAN.*|    $RULE_WAN|" "$NFTABLES_CONF"
+        sudo systemctl restart nftables
+        echo "SSH WAN access: ON"
+        ;;
+    off)
+        state=$(current_state)
+        if [[ "$state" == "off" ]]; then
+            echo "SSH WAN access is already off."
+            exit 0
+        fi
+        sudo sed -i "s|.*$RULE_WAN.*|    $RULE_LAN|" "$NFTABLES_CONF"
+        sudo systemctl restart nftables
+        echo "SSH WAN access: OFF"
+        ;;
+    status)
+        state=$(current_state)
+        case "$state" in
+            on)  echo "SSH WAN access: ON" ;;
+            off) echo "SSH WAN access: OFF (LAN only)" ;;
+            *)   echo "SSH WAN access: UNKNOWN (check $NFTABLES_CONF)" ;;
+        esac
+        ;;
+    *)
+        echo "Usage: ssh-wan [on|off|status]"
+        exit 1
+        ;;
+esac

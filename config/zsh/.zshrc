@@ -52,3 +52,10 @@ source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zs
 
 [ -f "$HOME/.config/shell/aliases.sh" ] && source "$HOME/.config/shell/aliases.sh"
 [ -f "$HOME/.config/shell/functions.sh" ] && source "$HOME/.config/shell/functions.sh"
+
+# bun completions
+[ -s "/home/nicholas/.bun/_bun" ] && source "/home/nicholas/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"

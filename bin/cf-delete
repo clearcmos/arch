@@ -1,0 +1,212 @@
+#!/bin/bash
+set -euo pipefail
+
+# Interactive Cloudflare DNS record deletion tool (fzf-based)
+# Credentials injected via 1Password (op run wrapper in functions.sh)
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+# Check dependencies
+for cmd in fzf jq curl; do
+    if ! command -v "$cmd" &>/dev/null; then
+        echo -e "${RED}Error: $cmd is required but not installed${NC}"
+        exit 1
+    fi
+done
+
+if [[ -z "${CLOUDFLARE_DNS_API_TOKEN:-}" ]]; then
+    echo -e "${RED}Error: CLOUDFLARE_DNS_API_TOKEN not set${NC}"
+    echo "This script should be run via the cf-delete wrapper (which uses op run)"
+    exit 1
+fi
+
+CF_API="https://api.cloudflare.com/client/v4"
+
+cf_api() {
+    local method="$1"
+    local endpoint="$2"
+    shift 2
+
+    curl -s -X "$method" \
+        -H "Authorization: Bearer $CLOUDFLARE_DNS_API_TOKEN" \
+        -H "Content-Type: application/json" \
+        "$CF_API/$endpoint" "$@"
+}
+
+# Select zone
+echo -e "${CYAN}Fetching Cloudflare zones...${NC}"
+ZONES=$(cf_api GET "zones" | jq -r '.result[] | "\(.name)|\(.id)"')
+
+if [[ -z "$ZONES" ]]; then
+    echo -e "${RED}No zones found or API error${NC}"
+    exit 1
+fi
+
+SELECTED_ZONE=$(echo "$ZONES" | fzf \
+    --header="Select a zone to manage:" \
+    --height=40% \
+    --border \
+    --prompt="Zone: " \
+    --preview-window=hidden)
+
+if [[ -z "$SELECTED_ZONE" ]]; then
+    echo -e "${YELLOW}No zone selected. Exiting.${NC}"
+    exit 0
+fi
+
+ZONE_NAME=$(echo "$SELECTED_ZONE" | cut -d'|' -f1)
+ZONE_ID=$(echo "$SELECTED_ZONE" | cut -d'|' -f2)
+
+echo -e "${GREEN}Selected zone: ${BOLD}$ZONE_NAME${NC}"
+echo
+
+# Fetch all DNS records with pagination
+echo -e "${CYAN}Fetching DNS records...${NC}"
+
+ALL_RECORDS=""
+PAGE=1
+while true; do
+    RESPONSE=$(cf_api GET "zones/$ZONE_ID/dns_records?page=$PAGE&per_page=100")
+    RECORDS=$(echo "$RESPONSE" | jq -r '.result[]')
+
+    if [[ -z "$RECORDS" ]]; then
+        break
+    fi
+
+    ALL_RECORDS="$ALL_RECORDS$RECORDS"
+
+    TOTAL_PAGES=$(echo "$RESPONSE" | jq -r '.result_info.total_pages')
+    if [[ "$PAGE" -ge "$TOTAL_PAGES" ]]; then
+        break
+    fi
+
+    PAGE=$((PAGE + 1))
+done
+
+if [[ -z "$ALL_RECORDS" ]]; then
+    echo -e "${YELLOW}No DNS records found in $ZONE_NAME${NC}"
+    exit 0
+fi
+
+# Format records: Type | Name | Content | Proxied | ID
+FORMATTED_RECORDS=$(echo "$ALL_RECORDS" | jq -r '
+    . | "\(.type)|\(.name)|\(.content)|\(if .proxied then "proxied" else "dns-only" end)|\(.id)"
+' | sort -t'|' -k1,1 -k2,2)
+
+# Record summary
+echo -e "${BOLD}Record Summary:${NC}"
+echo "$FORMATTED_RECORDS" | cut -d'|' -f1 | sort | uniq -c | while read count type; do
+    echo -e "  ${BLUE}$type${NC}: $count records"
+done
+echo
+
+# Multi-select with fzf
+echo -e "${YELLOW}Select records to delete (SPACE/TAB to mark, ENTER to confirm):${NC}"
+
+SELECTED_RECORDS=$(echo "$FORMATTED_RECORDS" | \
+    awk -F'|' '{
+        type_color=""
+        if ($1 == "A") type_color="\033[0;32m"
+        else if ($1 == "AAAA") type_color="\033[0;33m"
+        else if ($1 == "CNAME") type_color="\033[0;34m"
+        else if ($1 == "MX") type_color="\033[0;35m"
+        else if ($1 == "TXT") type_color="\033[0;36m"
+        else type_color="\033[0;37m"
+
+        printf "%s%-7s\033[0m %-40s -> %-40s %s\n", type_color, $1, $2, $3, $4
+    }' | \
+    fzf --multi \
+        --header="DNS Records (SPACE/TAB to mark, ENTER to confirm deletion)" \
+        --height=80% \
+        --border \
+        --prompt="Select records to delete: " \
+        --preview-window=hidden \
+        --bind='space:toggle' \
+        --bind='ctrl-a:select-all' \
+        --bind='ctrl-d:deselect-all' \
+        --bind='ctrl-r:toggle-all' \
+        --ansi \
+        --info=inline)
+
+if [[ -z "$SELECTED_RECORDS" ]]; then
+    echo -e "${GREEN}No records selected. Exiting without changes.${NC}"
+    exit 0
+fi
+
+# Show confirmation
+echo
+echo -e "${RED}${BOLD}WARNING: You are about to delete the following records:${NC}"
+echo -e "${RED}================================================================${NC}"
+
+RECORD_IDS=""
+while IFS= read -r line; do
+    CLEAN_LINE=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g')
+    TYPE=$(echo "$CLEAN_LINE" | awk '{print $1}')
+    NAME=$(echo "$CLEAN_LINE" | awk '{print $2}')
+    CONTENT=$(echo "$CLEAN_LINE" | awk '{print $4}')
+
+    ID=$(echo "$FORMATTED_RECORDS" | grep -F "|$NAME|$CONTENT|" | cut -d'|' -f5 | head -1)
+
+    if [[ -n "$ID" ]]; then
+        RECORD_IDS="$RECORD_IDS$ID "
+        echo -e "  ${YELLOW}$TYPE${NC}  $NAME -> $CONTENT"
+    fi
+done <<< "$SELECTED_RECORDS"
+
+echo -e "${RED}================================================================${NC}"
+echo
+
+TOTAL_TO_DELETE=$(echo "$RECORD_IDS" | wc -w)
+echo -e "${BOLD}Total records to delete: ${RED}$TOTAL_TO_DELETE${NC}"
+echo
+
+echo -en "${BOLD}Are you sure you want to delete these records? (yes/no): ${NC}"
+read -r CONFIRMATION
+
+if [[ "$CONFIRMATION" != "yes" ]]; then
+    echo -e "${GREEN}Operation cancelled. No records were deleted.${NC}"
+    exit 0
+fi
+
+# Delete records
+echo
+echo -e "${CYAN}Deleting records...${NC}"
+
+SUCCESS_COUNT=0
+FAIL_COUNT=0
+
+for ID in $RECORD_IDS; do
+    RECORD_INFO=$(echo "$ALL_RECORDS" | jq -r --arg id "$ID" 'select(.id == $id) | "\(.type) \(.name)"')
+
+    echo -n "Deleting $RECORD_INFO... "
+
+    RESPONSE=$(cf_api DELETE "zones/$ZONE_ID/dns_records/$ID" 2>&1)
+    SUCCESS=$(echo "$RESPONSE" | jq -r '.success' 2>/dev/null || echo "false")
+
+    if [[ "$SUCCESS" == "true" ]]; then
+        echo -e "${GREEN}done${NC}"
+        SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+    else
+        echo -e "${RED}failed${NC}"
+        ERROR_MSG=$(echo "$RESPONSE" | jq -r '.errors[0].message' 2>/dev/null || echo "Unknown error")
+        echo -e "  ${RED}Error: $ERROR_MSG${NC}"
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+    fi
+done
+
+# Summary
+echo
+echo -e "${BOLD}================================================================${NC}"
+echo -e "${BOLD}Operation Complete:${NC}"
+echo -e "  ${GREEN}Successfully deleted: $SUCCESS_COUNT records${NC}"
+if [[ "$FAIL_COUNT" -gt 0 ]]; then
+    echo -e "  ${RED}Failed to delete: $FAIL_COUNT records${NC}"
+fi
+echo -e "${BOLD}================================================================${NC}"

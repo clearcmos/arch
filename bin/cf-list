@@ -1,0 +1,67 @@
+#!/bin/bash
+set -euo pipefail
+
+# List all Cloudflare DNS records across zones
+# Credentials injected via 1Password (op run wrapper in functions.sh)
+
+if [[ -z "${CLOUDFLARE_DNS_API_TOKEN:-}" ]]; then
+    echo "Error: CLOUDFLARE_DNS_API_TOKEN not set"
+    echo "This script should be run via the cf-list wrapper (which uses op run)"
+    exit 1
+fi
+
+CF_API="https://api.cloudflare.com/client/v4"
+
+cf_api() {
+    curl -s -X GET \
+        -H "Authorization: Bearer $CLOUDFLARE_DNS_API_TOKEN" \
+        -H "Content-Type: application/json" \
+        "$CF_API/$1"
+}
+
+BOLD='\033[1m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+echo -e "${CYAN}Fetching Cloudflare DNS records...${NC}"
+
+ZONES=$(cf_api "zones" | jq -r '.result[] | .name')
+
+for ZONE in $ZONES; do
+    echo -e "\n${BOLD}${BLUE}Zone: $ZONE${NC}"
+    echo "============================================"
+
+    ZONE_ID=$(cf_api "zones?name=$ZONE" | jq -r '.result[0].id')
+
+    PAGE=1
+    while true; do
+        RESPONSE=$(cf_api "zones/$ZONE_ID/dns_records?page=$PAGE&per_page=100")
+        RECORDS=$(echo "$RESPONSE" | jq -r '.result[]')
+
+        if [[ -z "$RECORDS" ]]; then
+            break
+        fi
+
+        echo "$RECORDS" | jq -r '. | "\(.type)|\(.name)|\(.content)|\(if .proxied then "proxied" else "dns-only" end)"' | \
+            sort -t'|' -k1,1 -k2,2 | \
+            awk -F'|' '{
+                type_color=""
+                if ($1 == "A") type_color="\033[0;32m"
+                else if ($1 == "AAAA") type_color="\033[0;33m"
+                else if ($1 == "CNAME") type_color="\033[0;34m"
+                else if ($1 == "MX") type_color="\033[0;35m"
+                else if ($1 == "TXT") type_color="\033[0;36m"
+                else type_color="\033[0;37m"
+
+                printf "  %s%-7s\033[0m %-40s -> %-30s %s\n", type_color, $1, $2, $3, $4
+            }'
+
+        TOTAL_PAGES=$(echo "$RESPONSE" | jq -r '.result_info.total_pages')
+        if [[ "$PAGE" -ge "$TOTAL_PAGES" ]]; then
+            break
+        fi
+
+        PAGE=$((PAGE + 1))
+    done
+done

@@ -16,3 +16,6 @@ alias mine='sudo chown -R $(whoami):$(whoami)'
 alias r='sudo -i'
 alias cpath='pwd | tr -d '\''\n'\'' | wl-copy && echo "Copied: $(pwd)"'
 alias addons='cd "/mnt/data/games/World of Warcraft/_anniversary_/Interface/AddOns"'
+
+# Google Tasks CLI
+alias task='uv run ~/git/tasks/task.py'

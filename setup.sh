@@ -23,6 +23,17 @@ read_packages() {
     grep -v '^\s*#' "$1" | grep -v '^\s*$'
 }
 
+# --- Locale ---
+
+info "Ensuring en_CA.UTF-8 locale is generated..."
+if locale -a 2>/dev/null | grep -q 'en_CA.utf8'; then
+    info "  en_CA.UTF-8 already generated."
+else
+    sudo sed -i 's/^#en_CA.UTF-8 UTF-8/en_CA.UTF-8 UTF-8/' /etc/locale.gen
+    sudo locale-gen
+    info "  generated en_CA.UTF-8 locale."
+fi
+
 # --- Enable multilib repo ---
 
 info "Ensuring multilib repo is enabled..."
@@ -168,6 +179,31 @@ if ! grep -q 'secret-key-files' /etc/nix/nix.custom.conf 2>/dev/null; then
     info "  added secret-key-files to nix.custom.conf."
 fi
 
+# Nix packages
+for nix_pkg in nixpkgs#nixos-rebuild github:ryantm/agenix; do
+    pkg_name="${nix_pkg##*#}"
+    pkg_name="${pkg_name##*/}"
+    if nix profile list 2>/dev/null | grep -q "$pkg_name"; then
+        info "  nix: $pkg_name already installed."
+    else
+        nix profile install "$nix_pkg"
+        info "  nix: installed $pkg_name."
+    fi
+done
+
+# nix-scan is a local flake -- clone if missing, then install
+if [[ ! -f "$HOME/git/nix-scan/flake.nix" ]]; then
+    mkdir -p "$HOME/git"
+    git clone git@github.com:clearcmos/nix-scan.git "$HOME/git/nix-scan"
+    info "  cloned nix-scan to ~/git/nix-scan."
+fi
+if nix profile list 2>/dev/null | grep -q "nix-scan"; then
+    info "  nix: nix-scan already installed."
+else
+    nix profile install "git+file://$HOME/git/nix-scan"
+    info "  nix: installed nix-scan."
+fi
+
 # --- Claude Code ---
 
 if [[ -e "$HOME/.local/bin/claude" ]]; then
@@ -181,6 +217,24 @@ else
         info "  added ~/.local/bin to PATH in ~/.bashrc"
     fi
     export PATH="$HOME/.local/bin:$PATH"
+fi
+
+# --- Bun ---
+
+if command -v bun &>/dev/null; then
+    info "Bun already installed, skipping."
+else
+    info "Installing Bun..."
+    curl -fsSL https://bun.sh/install | bash
+    export PATH="$HOME/.bun/bin:$PATH"
+fi
+
+# Install global Bun packages
+if command -v tsc &>/dev/null; then
+    info "TypeScript already installed, skipping."
+else
+    info "Installing TypeScript via Bun..."
+    bun add -g typescript
 fi
 
 # --- depot_tools (Chromium build tools) ---
@@ -204,10 +258,10 @@ fi
 
 # --- Enable Services (config-free) ---
 # Services that need config deployed first are enabled inline in their own sections:
+#   nftables   (before sshd, firewall must be up first)
+#   fail2ban   (before sshd, brute force protection must be up first)
+#   sshd       (after nftables + fail2ban + config/ssh/sshd_config)
 #   bluetooth  (after config/bluetooth/main.conf)
-#   sshd       (after config/ssh/sshd_config)
-#   nftables   (after config/nftables/nftables.conf)
-#   fail2ban   (after config/fail2ban/jail.local)
 #   docker     (after config/docker/daemon.json)
 #   libvirtd   (after group memberships)
 #   cockpit    (after config/cockpit/cockpit.conf)
@@ -216,7 +270,7 @@ fi
 #   ydotool    (after service file)
 
 info "Enabling services..."
-for svc in NetworkManager greetd pcscd tailscaled; do
+for svc in NetworkManager greetd pcscd tailscaled systemd-oomd; do
     if systemctl is-enabled "$svc" &>/dev/null; then
         info "  $svc already enabled."
     else
@@ -529,6 +583,38 @@ else
     warn "  gh not found, skipping GitHub CLI auth."
 fi
 
+# --- Firewall (nftables + fail2ban, before sshd starts) ---
+
+info "Configuring firewall..."
+if ! diff -q "$SCRIPT_DIR/config/nftables/nftables.conf" /etc/nftables.conf &>/dev/null; then
+    sudo cp "$SCRIPT_DIR/config/nftables/nftables.conf" /etc/nftables.conf
+    info "  deployed nftables.conf."
+else
+    info "  nftables.conf already up to date."
+fi
+if systemctl is-enabled nftables &>/dev/null; then
+    info "  nftables already enabled."
+else
+    sudo systemctl enable --now nftables
+    info "  enabled nftables firewall."
+fi
+
+info "Configuring fail2ban..."
+if diff -q "$SCRIPT_DIR/config/fail2ban/jail.local" /etc/fail2ban/jail.local &>/dev/null; then
+    info "  fail2ban jail.local already up to date."
+else
+    sudo cp "$SCRIPT_DIR/config/fail2ban/jail.local" /etc/fail2ban/jail.local
+    info "  deployed fail2ban jail.local."
+fi
+if systemctl is-enabled fail2ban &>/dev/null; then
+    info "  fail2ban already enabled."
+    sudo systemctl reload fail2ban || sudo systemctl restart fail2ban
+    info "  reloaded fail2ban."
+else
+    sudo systemctl enable --now fail2ban
+    info "  enabled and started fail2ban."
+fi
+
 # --- SSH Configuration ---
 
 info "Configuring SSH..."
@@ -775,6 +861,16 @@ sudo cp "$SCRIPT_DIR/config/sysctl/99-hardening.conf" /etc/sysctl.d/99-hardening
 sudo sysctl --load /etc/sysctl.d/99-hardening.conf &>/dev/null
 info "  deployed sysctl hardening config."
 
+# Desktop memory tuning (zram + swappiness)
+sudo cp "$SCRIPT_DIR/config/sysctl/99-desktop.conf" /etc/sysctl.d/99-desktop.conf
+sudo sysctl --load /etc/sysctl.d/99-desktop.conf &>/dev/null
+info "  deployed sysctl desktop memory config."
+
+# zram (compressed swap in RAM)
+sudo mkdir -p /etc/systemd
+sudo cp "$SCRIPT_DIR/config/zram-generator/zram-generator.conf" /etc/systemd/zram-generator.conf
+info "  deployed zram-generator config."
+
 # Account lockout (explicit faillock settings)
 sudo cp "$SCRIPT_DIR/config/security/faillock.conf" /etc/security/faillock.conf
 info "  deployed faillock.conf."
@@ -795,19 +891,6 @@ else
     info "  /boot fstab already hardened."
 fi
 
-# Firewall (nftables)
-if ! diff -q "$SCRIPT_DIR/config/nftables/nftables.conf" /etc/nftables.conf &>/dev/null; then
-    sudo cp "$SCRIPT_DIR/config/nftables/nftables.conf" /etc/nftables.conf
-    info "  deployed nftables.conf."
-else
-    info "  nftables.conf already up to date."
-fi
-if systemctl is-enabled nftables &>/dev/null; then
-    info "  nftables already enabled."
-else
-    sudo systemctl enable --now nftables
-    info "  enabled nftables firewall."
-fi
 
 # Kernel modules
 if [[ ! -f /etc/modules-load.d/i2c-dev.conf ]]; then
@@ -816,6 +899,14 @@ if [[ ! -f /etc/modules-load.d/i2c-dev.conf ]]; then
     info "  enabled i2c-dev module (for ddcutil)."
 else
     info "  i2c-dev module already configured."
+fi
+
+# Bluetooth USB autosuspend (prevents BT adapter dropping out)
+if ! diff -q "$SCRIPT_DIR/config/modprobe.d/btusb.conf" /etc/modprobe.d/btusb.conf &>/dev/null; then
+    sudo cp "$SCRIPT_DIR/config/modprobe.d/btusb.conf" /etc/modprobe.d/btusb.conf
+    info "  copied /etc/modprobe.d/btusb.conf"
+else
+    info "  /etc/modprobe.d/btusb.conf already up to date."
 fi
 
 
@@ -948,23 +1039,6 @@ else
     bluetoothctl trust "$Q30_MAC" 2>/dev/null && info "  trusted Soundcore Life Q30." || true
 fi
 
-# --- Fail2ban (SSH protection) ---
-
-info "Configuring fail2ban..."
-if diff -q "$SCRIPT_DIR/config/fail2ban/jail.local" /etc/fail2ban/jail.local &>/dev/null; then
-    info "  fail2ban jail.local already up to date."
-else
-    sudo cp "$SCRIPT_DIR/config/fail2ban/jail.local" /etc/fail2ban/jail.local
-    info "  deployed fail2ban jail.local."
-fi
-if systemctl is-enabled fail2ban &>/dev/null; then
-    info "  fail2ban already enabled."
-    sudo systemctl reload fail2ban || sudo systemctl restart fail2ban
-    info "  reloaded fail2ban."
-else
-    sudo systemctl enable --now fail2ban
-    info "  enabled and started fail2ban."
-fi
 
 # --- Docker ---
 

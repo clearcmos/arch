@@ -13,6 +13,22 @@ instawow() {
     op run --no-masking --env-file="$HOME/.config/op/secrets.env" -- instawow "$@"
 }
 
+# Cloudflare DNS wrappers - 1Password when GUI available, file fallback otherwise
+cf-list() {
+    if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+        op run --no-masking --env-file="$HOME/.config/op/secrets.env" -- "$HOME/.local/bin/cf-list" "$@"
+    else
+        CLOUDFLARE_DNS_API_TOKEN="$(cat "$HOME/.config/cloudflare/token")" "$HOME/.local/bin/cf-list" "$@"
+    fi
+}
+cf-delete() {
+    if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+        op run --no-masking --env-file="$HOME/.config/op/secrets.env" -- "$HOME/.local/bin/cf-delete" "$@"
+    else
+        CLOUDFLARE_DNS_API_TOKEN="$(cat "$HOME/.config/cloudflare/token")" "$HOME/.local/bin/cf-delete" "$@"
+    fi
+}
+
 claim-files() {
     local files
     files=$(find . -user root -group root -print)
