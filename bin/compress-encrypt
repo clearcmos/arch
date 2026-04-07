@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Compress and encrypt a directory into a .zsc archive.
+# Thin wrapper around zsc seal.
+#
+# Usage: compress-encrypt [directory]
+#   Defaults to current directory if no argument given.
+
+target="${1:-.}"
+exec zsc -e "$target"

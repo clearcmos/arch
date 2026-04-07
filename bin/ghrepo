@@ -1,0 +1,167 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+# Check GitHub auth (test actual API access, not just auth status)
+check_auth() {
+  if ! gh api user &>/dev/null; then
+    echo -e "${RED}Not authenticated with GitHub. Set GH_TOKEN or run 'gh auth login'.${NC}"
+    exit 1
+  fi
+}
+
+# Visibility subcommand
+cmd_visibility() {
+  check_auth
+
+  if ! command -v gum &>/dev/null; then
+    echo -e "${RED}gum is required but not installed.${NC}"
+    exit 1
+  fi
+
+  # Fetch repos once (cached)
+  echo -e "${CYAN}Fetching repositories...${NC}"
+
+  repos=$(gh repo list --limit 100 --json name,visibility,stargazerCount \
+    --jq 'sort_by(.name | ascii_downcase) | .[] | "\(.name)|\(.visibility)|\(.stargazerCount)"')
+
+  if [[ -z "$repos" ]]; then
+    echo -e "${YELLOW}No repositories found.${NC}"
+    exit 0
+  fi
+
+  while true; do
+    # Select visibility filter
+    filter=$(gum choose "ALL" "PUBLIC" "PRIVATE" --header="Filter by visibility:" --cursor="> ") || exit 0
+
+    # Format and filter for gum filter (multi-select with spacebar)
+    choices=$(echo "$repos" | while IFS='|' read -r name visibility stars; do
+      if [[ "$filter" != "ALL" && "$visibility" != "$filter" ]]; then
+        continue
+      fi
+      star_info=""
+      [[ "$stars" -gt 0 ]] && star_info=" *$stars"
+      if [[ "$visibility" == "PUBLIC" ]]; then
+        echo "PUBLIC  | $name$star_info"
+      else
+        echo "PRIVATE | $name$star_info"
+      fi
+    done)
+
+    if [[ -z "$choices" ]]; then
+      echo -e "${YELLOW}No repositories found with filter: $filter${NC}"
+      sleep 1
+      continue
+    fi
+
+    clear
+    echo -e "${CYAN}=======================================================${NC}"
+    echo -e "${CYAN}       GitHub Repository Visibility Manager${NC}"
+    echo -e "${CYAN}=======================================================${NC}"
+    echo -e "${YELLOW}Filter: $filter | Use TAB to mark, ENTER to apply (Ctrl+C to exit)${NC}"
+    echo ""
+
+    selected=$(echo "$choices" | gum filter --no-limit --height=20 --placeholder="Type to filter, SPACEBAR to mark, ENTER to apply...") || continue
+
+    if [[ -z "$selected" ]]; then
+      continue
+    fi
+
+    # Build summary of changes
+    clear
+    echo -e "${CYAN}=======================================================${NC}"
+    echo -e "${CYAN}       Confirm Changes${NC}"
+    echo -e "${CYAN}=======================================================${NC}"
+    echo ""
+
+    starred_warnings=""
+
+    while IFS= read -r line; do
+      repo_name=$(echo "$line" | sed 's/.*| //' | sed 's/ \*.*//')
+      current_vis=$(echo "$line" | grep -q "PUBLIC" && echo "PUBLIC" || echo "PRIVATE")
+
+      # Get star count
+      star_count=$(echo "$repos" | grep "^$repo_name|" | cut -d'|' -f3)
+
+      if [[ "$current_vis" == "PUBLIC" ]]; then
+        new_vis="PRIVATE"
+        if [[ "$star_count" -gt 0 ]]; then
+          starred_warnings+="  - $repo_name ($star_count stars)"$'\n'
+        fi
+      else
+        new_vis="PUBLIC"
+      fi
+
+      echo -e "${YELLOW}$repo_name${NC} $current_vis -> $new_vis"
+    done <<< "$selected"
+
+    if [[ -n "$starred_warnings" ]]; then
+      echo ""
+      echo -e "${RED}WARNING: These repos have stars and will lose them:${NC}"
+      echo -e "${RED}$starred_warnings${NC}"
+    fi
+
+    echo ""
+    echo -e "${CYAN}Updating...${NC}"
+
+    success_count=0
+    fail_count=0
+
+    while IFS= read -r line; do
+      repo_name=$(echo "$line" | sed 's/.*| //' | sed 's/ \*.*//')
+      current_vis=$(echo "$line" | grep -q "PUBLIC" && echo "PUBLIC" || echo "PRIVATE")
+      new_vis=$([ "$current_vis" = "PUBLIC" ] && echo "private" || echo "public")
+
+      if gh repo edit "clearcmos/$repo_name" --visibility "$new_vis" --accept-visibility-change-consequences 2>&1 >/dev/null; then
+        echo -e "${GREEN}Done: $repo_name${NC}"
+        ((success_count++)) || true
+      else
+        echo -e "${RED}Failed: $repo_name${NC}"
+        ((fail_count++)) || true
+      fi
+    done <<< "$selected"
+
+    echo ""
+    echo -e "${CYAN}=======================================================${NC}"
+    if [[ $fail_count -eq 0 ]]; then
+      echo -e "${GREEN}All $success_count change(s) applied successfully${NC}"
+    else
+      echo -e "${YELLOW}$success_count succeeded, $fail_count failed${NC}"
+    fi
+    echo -e "${CYAN}=======================================================${NC}"
+    sleep 2
+  done
+}
+
+# Help
+cmd_help() {
+  echo "repo - GitHub repository management"
+  echo ""
+  echo "Usage: repo <command>"
+  echo ""
+  echo "Commands:"
+  echo "  visibility, vis, v    Manage repository visibility (public/private)"
+  echo "  help                  Show this help message"
+}
+
+# Main
+case "${1:-help}" in
+  visibility|vis|v)
+    cmd_visibility
+    ;;
+  help|--help|-h)
+    cmd_help
+    ;;
+  *)
+    echo "Unknown command: $1"
+    cmd_help
+    exit 1
+    ;;
+esac

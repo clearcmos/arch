@@ -16,6 +16,7 @@ lutris-world-of-warcraft-dependencies-amd
 ocrmypdf
 slack-desktop
 spotify
+t3code-bin
 visual-studio-code-bin
 webcamoid
 xremap-kde-bin

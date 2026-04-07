@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# GUI wrapper for zsc archives (.zsc).
+# When launched from a file manager, shows KDE dialogs for password and action.
+# When launched from a terminal, delegates directly to zsc CLI.
+#
+# Usage: decrypt-extract <archive.zsc> [output-directory]
+
+archive="${1:-}"
+
+if [[ -z "$archive" || ! -f "$archive" ]]; then
+    msg="Usage: decrypt-extract <archive.zsc>"
+    if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && command -v kdialog &>/dev/null; then
+        kdialog --error "$msg"
+    else
+        echo "error: $msg" >&2
+    fi
+    exit 1
+fi
+
+archive="$(realpath "$archive")"
+basename="$(basename "$archive")"
+archive_dir="$(dirname "$archive")"
+
+# Strip .zsc extension to get directory name
+dirname="${basename%.zsc}"
+
+# Detect if running with a GUI or in a terminal
+use_gui=false
+if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && command -v kdialog &>/dev/null && ! tty -s; then
+    use_gui=true
+fi
+
+show_error() {
+    if $use_gui; then
+        kdialog --error "$1"
+    else
+        echo "error: $1" >&2
+    fi
+}
+
+show_success() {
+    if $use_gui; then
+        kdialog --passivepopup "Extracted to:
+$1" 5
+    else
+        echo "extracted: $1"
+    fi
+}
+
+# Terminal mode: delegate directly to zsc
+if ! $use_gui; then
+    output_dir="${2:-${archive_dir}/${dirname}}"
+    zsc -d "$archive" "$output_dir"
+    exit $?
+fi
+
+# GUI mode: password dialog
+password="$(kdialog --title "Encrypted Archive" \
+    --password "Enter passphrase to decrypt:
+$basename")" || exit 0
+
+if [[ -z "$password" ]]; then
+    exit 0
+fi
+
+# Action picker
+choice="$(qt-menu "Extract Archive" \
+    here "Extract Here" \
+    choose "Extract To..." \
+    explore "Explore in Ark")" || exit 0
+
+if [[ "$choice" == "explore" ]]; then
+    if zsc --explore "$archive" --passphrase-fd 3 3<<< "$password" 2>/dev/null; then
+        unset password
+    else
+        unset password
+        show_error "Decryption failed. Wrong passphrase or corrupted archive."
+        exit 1
+    fi
+    exit 0
+fi
+
+# Extract mode
+if [[ "$choice" == "choose" ]]; then
+    output_dir="$(kdialog --title "Extract To" \
+        --getexistingdirectory "$archive_dir")" || exit 0
+    output_dir="${output_dir}/${dirname}"
+else
+    output_dir="${archive_dir}/${dirname}"
+fi
+
+if zsc -d "$archive" "$output_dir" --passphrase-fd 3 3<<< "$password" 2>/dev/null; then
+    unset password
+    show_success "$output_dir"
+else
+    unset password
+    show_error "Decryption failed. Wrong passphrase or corrupted archive."
+    exit 1
+fi

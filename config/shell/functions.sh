@@ -113,6 +113,9 @@ gc() {
 # --- FZF Utilities ---
 
 export FZF_DEFAULT_OPTS='--height 80% --layout=reverse --border --preview-window=right:60%:wrap'
+export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git --max-results 50000'
+export FZF_CTRL_T_COMMAND='fd --type f --hidden --exclude .git --max-results 50000'
+export FZF_ALT_C_COMMAND='fd --type d --hidden --exclude .git --max-results 10000'
 
 # fnano - Find file and search for string inside it, all from the fzf prompt
 # Usage: type filename to filter files, add "search term" to highlight matches in preview

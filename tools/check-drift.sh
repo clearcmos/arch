@@ -103,11 +103,22 @@ echo "Checking for configuration drift..."
 echo ""
 
 # KDE configs (copied because KConfig atomic writes break symlinks)
-check "$REPO_DIR/config/kde/plasma-org.kde.plasma.desktop-appletsrc" "$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
-check "$REPO_DIR/config/kde/plasmashellrc" "$HOME/.config/plasmashellrc"
+# Auto-sync appletsrc from live to repo (KDE owns this file, repo is just a backup)
+if ! diff -q "$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc" "$REPO_DIR/config/kde/plasma-org.kde.plasma.desktop-appletsrc" &>/dev/null; then
+    cp "$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc" "$REPO_DIR/config/kde/plasma-org.kde.plasma.desktop-appletsrc"
+    echo "  Auto-synced plasma-org.kde.plasma.desktop-appletsrc to repo."
+fi
+# Auto-sync KDE-owned files (live is source of truth, repo is backup)
+if ! diff -q "$HOME/.config/plasmashellrc" "$REPO_DIR/config/kde/plasmashellrc" &>/dev/null; then
+    cp "$HOME/.config/plasmashellrc" "$REPO_DIR/config/kde/plasmashellrc"
+    echo "  Auto-synced plasmashellrc to repo."
+fi
+if ! diff -q "$HOME/.config/kwinoutputconfig.json" "$REPO_DIR/config/kde/kwinoutputconfig.json" &>/dev/null; then
+    cp "$HOME/.config/kwinoutputconfig.json" "$REPO_DIR/config/kde/kwinoutputconfig.json"
+    echo "  Auto-synced kwinoutputconfig.json to repo."
+fi
 check "$REPO_DIR/config/kde/powerdevilrc" "$HOME/.config/powerdevilrc"
 check "$REPO_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
-check "$REPO_DIR/config/kde/kwinoutputconfig.json" "$HOME/.config/kwinoutputconfig.json"
 check "$REPO_DIR/config/kde/kcminputrc" "$HOME/.config/kcminputrc"
 check "$REPO_DIR/config/kde/kxkbrc" "$HOME/.config/kxkbrc"
 

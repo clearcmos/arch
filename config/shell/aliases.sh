@@ -10,7 +10,8 @@ alias check-updates='~/arch/tools/check-updates.sh'
 
 # Standard
 alias ls='ls -lh --color=auto --group-directories-first'
-alias compress='dir=$(basename "$(pwd)"); tar -czf "${dir}.tar.gz" ./*'
+compress() { local target="${1:-.}"; local name=$(basename "$(realpath "$target")"); tar --zstd -cf "${name}.tar.zst" -C "$target" .; }
+function du { command du -h --max-depth=1 "$@" | sort -h; }
 alias gen='openssl rand -base64 45'
 alias mine='sudo chown -R $(whoami):$(whoami)'
 alias r='sudo -i'

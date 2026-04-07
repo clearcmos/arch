@@ -729,6 +729,13 @@ fi
 # Web apps (Brave PWAs)
 link_config "$SCRIPT_DIR/config/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop" "$HOME/.local/share/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop"
 link_config "$SCRIPT_DIR/config/applications/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.desktop" "$HOME/.local/share/applications/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.desktop"
+
+# Encrypted archive (decrypt-extract double-click handler)
+link_config "$SCRIPT_DIR/config/applications/decrypt-extract.desktop" "$HOME/.local/share/applications/decrypt-extract.desktop"
+mkdir -p "$HOME/.local/share/mime/packages"
+link_config "$SCRIPT_DIR/config/mime/x-zsc.xml" "$HOME/.local/share/mime/packages/x-zsc.xml"
+update-mime-database "$HOME/.local/share/mime" &>/dev/null
+update-desktop-database "$HOME/.local/share/applications" &>/dev/null
 for size in 32x32 48x48 128x128 256x256; do
     link_config "$SCRIPT_DIR/config/icons/hicolor/$size/apps/brave-okhfeehhillipaleckndoboggdkcebmo-Default.png" "$HOME/.local/share/icons/hicolor/$size/apps/brave-okhfeehhillipaleckndoboggdkcebmo-Default.png"
     link_config "$SCRIPT_DIR/config/icons/hicolor/$size/apps/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.png" "$HOME/.local/share/icons/hicolor/$size/apps/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.png"
@@ -772,6 +779,8 @@ link_config "$SCRIPT_DIR/config/zsh/.zshrc" "$HOME/.zshrc"
 # Claude Code
 link_config "$SCRIPT_DIR/config/claude-code/settings.json" "$HOME/.claude/settings.json"
 link_config "$SCRIPT_DIR/config/claude-code/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+link_config "$SCRIPT_DIR/config/claude-code/skills" "$HOME/.claude/skills"
+link_config "$SCRIPT_DIR/config/claude-code/commands" "$HOME/.claude/commands"
 
 # Instawow
 link_config "$SCRIPT_DIR/config/instawow/profiles/__default__/config.json" "$HOME/.config/instawow/profiles/__default__/config.json"

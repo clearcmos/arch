@@ -80,8 +80,12 @@ favoritesPortedToKAstats=true
 immutability=1
 plugin=org.kde.plasma.icontasks
 
+[Containments][4][Applets][7][Configuration]
+popupHeight=433
+popupWidth=432
+
 [Containments][4][Applets][7][Configuration][General]
-launchers=applications:brave-browser.desktop,applications:foot.desktop,applications:org.kde.dolphin.desktop
+launchers=applications:brave-browser.desktop,applications:org.kde.dolphin.desktop,applications:foot.desktop
 
 [Containments][4][Applets][9]
 activityId=
@@ -165,6 +169,10 @@ plugin=org.kde.plasma.vault
 immutability=1
 plugin=org.kde.plasma.printmanager
 
+[Containments][4][Applets][9][ConfigDialog]
+DialogHeight=630
+DialogWidth=810
+
 [Containments][4][Applets][9][General]
 extraItems=org.kde.plasma.keyboardlayout,org.kde.plasma.keyboardindicator,org.kde.plasma.notifications,org.kde.plasma.clipboard,org.kde.plasma.mediacontroller,org.kde.plasma.cameraindicator,org.kde.plasma.brightness,org.kde.plasma.weather,org.kde.plasma.devicenotifier,org.kde.plasma.manage-inputmethod,org.kde.plasma.bluetooth,org.kde.plasma.battery,org.kde.plasma.volume,org.kde.kscreen,org.kde.plasma.networkmanagement,org.kde.plasma.vault,org.kde.plasma.printmanager
 knownItems=org.kde.plasma.keyboardlayout,org.kde.plasma.keyboardindicator,org.kde.plasma.notifications,org.kde.plasma.clipboard,org.kde.plasma.mediacontroller,org.kde.plasma.cameraindicator,org.kde.plasma.brightness,org.kde.plasma.weather,org.kde.plasma.devicenotifier,org.kde.plasma.manage-inputmethod,org.kde.plasma.bluetooth,org.kde.plasma.battery,org.kde.plasma.volume,org.kde.kscreen,org.kde.plasma.networkmanagement,org.kde.plasma.vault,org.kde.plasma.printmanager
@@ -174,4 +182,4 @@ AppletOrder=27;5;7;28;9;21;22
 
 [ScreenMapping]
 itemsOnDisabledScreens=
-screenMapping=
+screenMapping=desktop:/claw-code-main.zip,0,00504fb1-82cf-478a-a47c-26b62dafa416,desktop:/Respond to survey - Rippling.pdf,0,00504fb1-82cf-478a-a47c-26b62dafa416

@@ -171,7 +171,7 @@
                             "x": 0,
                             "y": 0
                         },
-                        "priority": 0,
+                        "priority": 1,
                         "replicationSource": ""
                     },
                     {
@@ -181,7 +181,7 @@
                             "x": 1707,
                             "y": 0
                         },
-                        "priority": 1,
+                        "priority": 2,
                         "replicationSource": ""
                     }
                 ]

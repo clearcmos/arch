@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Decrypt and Extract
+Comment=Decrypt and extract a zsc archive
+Exec=decrypt-extract %f
+Icon=archive-extract
+Terminal=false
+MimeType=application/x-zsc;
+Categories=Utility;Archiving;
+NoDisplay=true
