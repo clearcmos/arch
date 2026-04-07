@@ -17,7 +17,23 @@ cpush() {
     --tools "Bash,Read,Edit" \
     --append-system-prompt-file ~/arch/config/claude-code/commands/push.md \
     "Run /push.${1:+ Use this commit message: $1}" \
-    2>&1 | tee /tmp/cpush-raw.json | tail -1
+    2>&1 | jq -rj '
+      if .type == "assistant" then
+        [.message.content[]? |
+          if .type == "tool_use" then
+            "> \(.name): \(.input.command // .input.file_path // "")\n"
+          elif .type == "text" then
+            "\(.text)\n"
+          else empty end
+        ] | join("")
+      elif .type == "user" and .tool_use_result then
+        if (.tool_use_result.stdout // "") != "" then
+          "  \(.tool_use_result.stdout | split("\n") | join("\n  "))\n"
+        else empty end
+      elif .type == "result" then
+        "\n\(.result)\n"
+      else empty end
+    '
 }
 
 # Standard
