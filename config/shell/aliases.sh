@@ -8,6 +8,15 @@ alias c='claude'
 # Update checker
 alias check-updates='~/arch/tools/check-updates.sh'
 
+# Claude Code inline push (reuses /push skill)
+cpush() {
+  claude -p \
+    --dangerously-skip-permissions \
+    --tools "Bash,Read,Edit" \
+    --append-system-prompt-file ~/arch/config/claude-code/commands/push.md \
+    "Run /push.${1:+ Use this commit message: $1}"
+}
+
 # Standard
 alias ls='ls -lh --color=auto --group-directories-first'
 compress() { local target="${1:-.}"; local name=$(basename "$(realpath "$target")"); tar --zstd -cf "${name}.tar.zst" -C "$target" .; }

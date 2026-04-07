@@ -81,7 +81,7 @@ When multiple files match, rank candidates:
 | File size > 100KB | Medium | `ls -la` -- larger sessions are more substantive |
 | Date matches user's hint | High | `stat -c '%y'` on the file |
 | Project dir matches hint | High | Directory name |
-| Keywords in user messages (not just tool output) | Medium | Grep for `"role":"user"` near the keyword |
+| Keywords in user messages (not just tool output) | Medium | Grep for `"type":"user"` near the keyword |
 
 ### Quick scoring script
 
@@ -102,7 +102,7 @@ done | sort -rn
 
 After narrowing to a few candidates with keyword grep, **immediately extract the first real user messages** to identify conversations. This is far more efficient than repeatedly grepping for more keywords.
 
-The JSONL format stores user messages with either `"type": "human"` or `"role": "user"`. Content lives at `obj['message']['content']` or `obj['content']` depending on the format. Content can be a string or a list of content blocks. Skip boilerplate lines (skill invocations, command output, etc.):
+The JSONL format stores user messages with `"type": "user"` at the top level. Content is nested at `obj['message']['content']` and can be a plain string or a list of content blocks (each with `"type": "text"` and a `"text"` field). Other top-level `type` values include `"permission-mode"`, `"file-history-snapshot"`, `"assistant"`, etc. -- only `"user"` contains user messages. Skip boilerplate lines (skill invocations, command output, etc.):
 
 ```bash
 python3 -c "
@@ -110,12 +110,11 @@ import json, sys
 with open('CANDIDATE_FILE') as fh:
     found = 0
     for line in fh:
+        if found >= 5: break
         try:
             obj = json.loads(line)
-            # Handle both JSONL formats
-            role = obj.get('type', obj.get('role', ''))
-            if role not in ('human', 'user'): continue
-            content = obj.get('content', obj.get('message', {}).get('content', ''))
+            if obj.get('type') != 'user': continue
+            content = obj.get('message', {}).get('content', '')
             if isinstance(content, list):
                 text = ' '.join(c.get('text','') for c in content if isinstance(c, dict) and c.get('type')=='text')
             elif isinstance(content, str):
@@ -126,8 +125,7 @@ with open('CANDIDATE_FILE') as fh:
                 continue
             if len(text.strip()) < 5: continue
             found += 1
-            if found <= 3:
-                print(f'MSG {found}: {text[:300]}')
+            print(f'MSG {found}: {text[:300]}')
         except: pass
 "
 ```
