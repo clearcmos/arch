@@ -24,6 +24,9 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+# Binaries
+bin/zsc
+
 # Misc
 nixos/
 pkgbuilds/
