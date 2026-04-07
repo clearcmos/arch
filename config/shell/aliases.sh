@@ -11,6 +11,7 @@ alias check-updates='~/arch/tools/check-updates.sh'
 # Claude Code inline push (reuses /push skill)
 cpush() {
   claude -p \
+    --verbose \
     --dangerously-skip-permissions \
     --tools "Bash,Read,Edit" \
     --append-system-prompt-file ~/arch/config/claude-code/commands/push.md \
