@@ -12,10 +12,12 @@ alias check-updates='~/arch/tools/check-updates.sh'
 cpush() {
   claude -p \
     --verbose \
+    --output-format stream-json \
     --dangerously-skip-permissions \
     --tools "Bash,Read,Edit" \
     --append-system-prompt-file ~/arch/config/claude-code/commands/push.md \
-    "Run /push.${1:+ Use this commit message: $1}"
+    "Run /push.${1:+ Use this commit message: $1}" \
+    2>&1 | tee /tmp/cpush-raw.json | tail -1
 }
 
 # Standard
