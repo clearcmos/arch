@@ -21,7 +21,7 @@ cpush() {
       if .type == "assistant" then
         [.message.content[]? |
           if .type == "tool_use" then
-            "  \(.input.command // .input.file_path // .name)\n"
+            "\(.input.command // .input.file_path // .name)\n"
           elif .type == "text" then
             "\n\(.text)\n"
           else empty end
@@ -30,11 +30,11 @@ cpush() {
         (.tool_use_result.stdout // "") |
         if . != "" then
           split("\n") | if length > 6 then .[:3] + ["  ...(\(length - 3) more lines)"] else . end |
-          map("    \(.)") | join("\n") + "\n"
+          map("  \(.)") | join("\n") + "\n"
         else empty end
       elif .type == "result" then empty
       else empty end
-    '
+    ' | mdriver
 }
 
 # Standard
