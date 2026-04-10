@@ -110,6 +110,32 @@ gc() {
     rm "$tmpfile"
 }
 
+# clone - Clone a git repo into ~/git
+# Reads from clipboard if no argument given
+clone() {
+    local url="${1:-$(wl-paste 2>/dev/null)}"
+
+    if [[ -z "$url" ]]; then
+        echo "No URL provided and clipboard is empty."
+        return 1
+    fi
+
+    if [[ ! "$url" =~ ^(https?://|git@)[a-zA-Z0-9._-]+(:|/)[a-zA-Z0-9._/-]+(\.git)?$ ]]; then
+        echo "Not a valid git repo URL: $url"
+        return 1
+    fi
+
+    mkdir -p ~/git
+    git clone "$url" ~/git/"$(basename "${url%.git}")"
+}
+
+# g - fzf pick a directory in ~/git and cd to it
+g() {
+    local dir
+    dir=$(find ~/git -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | fzf --prompt="~/git/ ")
+    [[ -n "$dir" ]] && cd ~/git/"$dir"
+}
+
 # --- FZF Utilities ---
 
 export FZF_DEFAULT_OPTS='--height 80% --layout=reverse --border --preview-window=right:60%:wrap'

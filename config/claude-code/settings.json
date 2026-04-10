@@ -17,5 +17,6 @@
     "clangd-lsp@claude-plugins-official": true,
     "github@claude-plugins-official": true,
     "legalzoom@claude-plugins-official": true
-  }
+  },
+  "effortLevel": "medium"
 }

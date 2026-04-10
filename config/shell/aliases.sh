@@ -27,7 +27,8 @@ cpush() {
           else empty end
         ] | join("")
       elif .type == "user" and .tool_use_result then
-        (.tool_use_result.stdout // "") |
+        (if (.tool_use_result | type) == "string" then .tool_use_result
+         else (.tool_use_result.stdout // "") end) |
         if . != "" then
           split("\n") | if length > 6 then .[:3] + ["  ...(\(length - 3) more lines)"] else . end |
           map("  \(.)") | join("\n") + "\n"
