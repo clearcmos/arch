@@ -56,3 +56,15 @@ link negotiates at HDMI 1.4 speeds, limited by the monitor.
 |-----------|---------------|-------------|
 | DisplayPort | 1.4a (DSC 1.2a) | 1.4a (HBR3) |
 | HDMI | 2.1 (48 Gbps FRL) | 1.4 (monitor-limited, 270 MHz max) |
+
+## Maximum Output Capabilities
+
+- **Max simultaneous displays:** 4 (4 display pipes, DCN 2.1)
+- **Max resolution per output:** 8K (7680x4320) @ 60Hz via DP 1.4a with DSC
+- **4K@120Hz:** Supported on all ports. DP 1.4a fits 4K@120Hz 8bpc uncompressed
+  (25.92 Gbps effective vs ~23.89 Gbps needed). 10bpc requires DSC.
+- **4K@144Hz:** Requires DSC over DP 1.4a. HDMI 2.1 handles it uncompressed.
+- **3x 4K@120Hz:** Fully supported (3 of 4 display pipes, one per monitor).
+  Use 3x DP for cleanest setup. DSC recommended for headroom.
+- **DSC:** Supported (Display Stream Compression 1.2a). Visually lossless,
+  ~1-2 lines of latency. Monitor must also support DSC decoding.

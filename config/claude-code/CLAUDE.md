@@ -6,8 +6,9 @@ These apply to all projects.
 - Never run package install commands (pacman, paru, etc.) directly. Ask the user to run them instead.
 - Do not add co-authorship lines (e.g. `Co-Authored-By`) to git commits.
 - Do not use emojis anywhere - not in code, commits, comments, or documentation.
-- Do not use em dashes. Use regular hyphens or double dashes (--) instead. Exception: em dashes are allowed if the user explicitly asks to override this rule for a specific project or file.
+- Do not use em dashes or double dashes (--). Use regular hyphens instead. Exception: em dashes/double dashes are allowed if the user explicitly asks to override this rule for a specific project or file.
 - Never commit PHI, PII, secrets, credentials, API keys, tokens, or any sensitive data. Always review staged changes for sensitive content before committing.
+- When writing README.md files for dev project repos, do not overstate or oversell. Avoid editorial language (e.g. "powerful", "elegant", "blazing fast", "robust", "seamless"). Describe what the project does factually and concisely.
 
 # KDE/KWin Window Debugging (Wayland)
 

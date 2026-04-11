@@ -729,6 +729,7 @@ fi
 # Web apps (Brave PWAs)
 link_config "$SCRIPT_DIR/config/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop" "$HOME/.local/share/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop"
 link_config "$SCRIPT_DIR/config/applications/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.desktop" "$HOME/.local/share/applications/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.desktop"
+link_config "$SCRIPT_DIR/config/applications/brave-agimnkijcaahngcdmfeangaknmldooml-Default.desktop" "$HOME/.local/share/applications/brave-agimnkijcaahngcdmfeangaknmldooml-Default.desktop"
 
 # Encrypted archive (decrypt-extract double-click handler)
 link_config "$SCRIPT_DIR/config/applications/decrypt-extract.desktop" "$HOME/.local/share/applications/decrypt-extract.desktop"
@@ -739,6 +740,7 @@ update-desktop-database "$HOME/.local/share/applications" &>/dev/null
 for size in 32x32 48x48 128x128 256x256; do
     link_config "$SCRIPT_DIR/config/icons/hicolor/$size/apps/brave-okhfeehhillipaleckndoboggdkcebmo-Default.png" "$HOME/.local/share/icons/hicolor/$size/apps/brave-okhfeehhillipaleckndoboggdkcebmo-Default.png"
     link_config "$SCRIPT_DIR/config/icons/hicolor/$size/apps/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.png" "$HOME/.local/share/icons/hicolor/$size/apps/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.png"
+    link_config "$SCRIPT_DIR/config/icons/hicolor/$size/apps/brave-agimnkijcaahngcdmfeangaknmldooml-Default.png" "$HOME/.local/share/icons/hicolor/$size/apps/brave-agimnkijcaahngcdmfeangaknmldooml-Default.png"
 done
 link_config "$SCRIPT_DIR/config/icons/hicolor/512x512/apps/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.png" "$HOME/.local/share/icons/hicolor/512x512/apps/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.png"
 

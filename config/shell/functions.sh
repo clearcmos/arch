@@ -129,12 +129,47 @@ clone() {
     git clone "$url" ~/git/"$(basename "${url%.git}")"
 }
 
-# g - fzf pick a directory in ~/git and cd to it
+# g - cd to a directory in ~/git
+# "g qc" + Enter fuzzy-matches to qc-law and cd's into it
 g() {
-    local dir
-    dir=$(find ~/git -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | fzf --prompt="~/git/ ")
-    [[ -n "$dir" ]] && cd ~/git/"$dir"
+    if [[ -z "$1" ]]; then
+        cd ~/git
+    else
+        cd ~/git/"$1"
+    fi
 }
+
+if [[ -n "$ZSH_VERSION" ]]; then
+    _g_accept_line() {
+        if [[ "$BUFFER" == g\ * ]]; then
+            local query="${BUFFER#g }"
+            local -a matches
+            matches=("${(@f)$(find ~/git -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | grep -i "$query" | sort)}")
+            if (( ${#matches} == 1 )); then
+                BUFFER="g ${matches[1]}"
+            elif (( ${#matches} > 1 )); then
+                # multiple matches - prefer prefix match, else take first
+                local m
+                for m in "${matches[@]}"; do
+                    if [[ "${m:l}" == "${query:l}"* ]]; then
+                        BUFFER="g $m"
+                        break
+                    fi
+                done
+            fi
+        fi
+        zle accept-line
+    }
+    zle -N _g_accept_line
+    bindkey '^M' _g_accept_line
+
+    _g() {
+        local -a dirs
+        dirs=("${(@f)$(find ~/git -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)}")
+        compadd -a dirs
+    }
+    compdef _g g
+fi
 
 # --- FZF Utilities ---
 
