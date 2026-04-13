@@ -9,6 +9,7 @@ These apply to all projects.
 - Do not use em dashes or double dashes (--). Use regular hyphens instead. Exception: em dashes/double dashes are allowed if the user explicitly asks to override this rule for a specific project or file.
 - Never commit PHI, PII, secrets, credentials, API keys, tokens, or any sensitive data. Always review staged changes for sensitive content before committing.
 - When writing README.md files for dev project repos, do not overstate or oversell. Avoid editorial language (e.g. "powerful", "elegant", "blazing fast", "robust", "seamless"). Describe what the project does factually and concisely.
+- When creating new repos, always use `main` as the default branch name, never `master`.
 
 # KDE/KWin Window Debugging (Wayland)
 

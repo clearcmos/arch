@@ -8,6 +8,10 @@ alias c='claude'
 # Update checker
 alias check-updates='~/arch/tools/check-updates.sh'
 
+# GitHub repo management
+alias gvis='ghrepo visibility'
+alias gvisibility='ghrepo visibility'
+
 # Claude Code inline push (reuses /push skill)
 cpush() {
   claude -p \

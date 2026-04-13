@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# Explain a code file or project using Ollama with streamed, rendered markdown output.
+# Usage: explain [file]
+#   With a file argument: explains what that file does.
+#   Without arguments: explains the project in the current directory (how to use it).
+set -euo pipefail
+
+MODEL="${OLLAMA_MODEL:-qwen2.5-coder:14b}"
+OLLAMA_URL="${AI_API_URL:-http://localhost:11434}"
+
+if [ $# -ge 1 ]; then
+    # File mode
+    file="$1"
+    if [ ! -f "$file" ]; then
+        echo "File not found: $file" >&2
+        exit 1
+    fi
+
+    filename=$(basename "$file")
+    content=$(cat "$file")
+
+    if [ -z "$content" ]; then
+        echo "File is empty: $file" >&2
+        exit 1
+    fi
+
+    max_chars=12000
+    if [ ${#content} -gt $max_chars ]; then
+        content="${content:0:$max_chars}
+... (truncated at ${max_chars} chars)"
+    fi
+
+    prompt="Explain what this file does. Be concise and direct - cover purpose, key logic, and any notable details. Do not restate the code line by line.
+
+Filename: ${filename}
+
+\`\`\`
+${content}
+\`\`\`"
+    num_predict=512
+else
+    # Project mode - explain the current directory as a project
+    project_name=$(basename "$PWD")
+    context=""
+
+    for candidate in CLAUDE.md README.md README.rst README.txt README; do
+        if [ -f "$candidate" ]; then
+            file_content=$(head -c 8000 "$candidate")
+            context+="--- ${candidate} ---
+${file_content}
+
+"
+        fi
+    done
+
+    # If no docs found, grab the top-level file listing for some context
+    if [ -z "$context" ]; then
+        context="Directory listing:
+$(ls -1)"
+    fi
+
+    max_chars=16000
+    if [ ${#context} -gt $max_chars ]; then
+        context="${context:0:$max_chars}
+... (truncated at ${max_chars} chars)"
+    fi
+
+    prompt="You are looking at a project called \"${project_name}\". Based on the documentation below, give me a practical usage guide. Focus on:
+
+1. What the project is (one or two sentences)
+2. Key commands - how to build, run, test, and use it. List actual commands.
+3. Any important workflows or entry points a user should know about.
+
+Be concise and direct. Skip obvious stuff like 'cd into the directory'. Do not repeat documentation verbatim - summarize into actionable instructions.
+
+${context}"
+    num_predict=1024
+fi
+
+# Build the JSON payload
+payload=$(jq -n \
+    --arg model "$MODEL" \
+    --arg prompt "$prompt" \
+    --argjson num_predict "$num_predict" \
+    '{model: $model, prompt: $prompt, stream: true,
+      options: {temperature: 0, num_predict: $num_predict}}')
+
+# Stream from Ollama and render markdown progressively with rich
+exec python3 -c "
+import json
+import sys
+import urllib.request
+
+from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
+
+payload = sys.stdin.buffer.read()
+req = urllib.request.Request(
+    '${OLLAMA_URL}/api/generate',
+    data=payload,
+    headers={'Content-Type': 'application/json'},
+)
+
+console = Console()
+buffer = ''
+try:
+    with urllib.request.urlopen(req) as resp, \
+         Live(Markdown(''), console=console, refresh_per_second=8) as live:
+        for line in resp:
+            chunk = json.loads(line)
+            token = chunk.get('response', '')
+            if token:
+                buffer += token
+                live.update(Markdown(buffer))
+            if chunk.get('done'):
+                break
+except urllib.error.URLError:
+    print('Could not connect to Ollama.', file=sys.stderr)
+    sys.exit(1)
+
+if not buffer.strip():
+    print('Ollama returned an empty response.', file=sys.stderr)
+    sys.exit(1)
+" <<< "$payload"

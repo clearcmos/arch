@@ -126,7 +126,8 @@ clone() {
     fi
 
     mkdir -p ~/git
-    git clone "$url" ~/git/"$(basename "${url%.git}")"
+    local dest=~/git/"$(basename "${url%.git}")"
+    git clone "$url" "$dest" && echo "$dest" | tr -d '\n' | wl-copy && echo "Copied: $dest"
 }
 
 # g - cd to a directory in ~/git
