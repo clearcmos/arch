@@ -1,5 +1,35 @@
 # Shell functions
 
+# ls - standard ls everywhere, with git ownership tags in ~/git
+unalias ls 2>/dev/null
+ls() {
+    local resolved clean name tag
+    resolved=$(readlink -f "$PWD" 2>/dev/null)
+    if [[ ("$PWD" == "$HOME/git" || "$resolved" == "/mnt/data/git") && $# -eq 0 ]]; then
+        command ls -lh --color=always --group-directories-first | while IFS= read -r line; do
+            if [[ "$line" == total* ]]; then
+                echo "$line"
+                continue
+            fi
+            clean=$(printf '%s' "$line" | sed 's/\x1b\[[0-9;]*m//g')
+            name="${clean##* }"
+            tag=""
+            if [[ -d "$name/.git" ]]; then
+                if git -C "$name" remote get-url origin 2>/dev/null | grep -q clearcmos; then
+                    tag=$' \e[32m[mine]\e[0m'
+                elif git -C "$name" remote 2>/dev/null | while read -r r; do
+                    git -C "$name" remote get-url "$r" 2>/dev/null
+                done | grep -q clearcmos; then
+                    tag=$' \e[33m[fork]\e[0m'
+                fi
+            fi
+            printf '%s%s\n' "$line" "$tag"
+        done
+    else
+        command ls -lh --color=auto --group-directories-first "$@"
+    fi
+}
+
 # nano wrapper - switches xremap to nano mode so Ctrl+W passes through as
 # nano search instead of closing the Konsole tab
 nano() {

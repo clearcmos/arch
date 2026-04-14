@@ -3,6 +3,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="$SCRIPT_DIR/setup.log"
+
+# --- Flags ---
+
+WORK_PROFILE=false
+for arg in "$@"; do
+    case "$arg" in
+        --work-profile) WORK_PROFILE=true ;;
+    esac
+done
 exec > >(tee "$LOG_FILE") 2>&1
 trap 'sleep 0.1' EXIT  # allow tee to flush
 echo "=== setup.sh started at $(date) ==="
@@ -191,9 +200,40 @@ for nix_pkg in nixpkgs#nixos-rebuild github:ryantm/agenix; do
     fi
 done
 
+# --- Data Disk Mount (needed before ~/git symlink) ---
+
+info "Mounting data disk..."
+DATA_UUID="60d4fb47-d8fd-4445-adb0-2fd303da775b"
+DATA_FSTAB="UUID=$DATA_UUID /mnt/data ext4 defaults,nosuid,nodev 0 2"
+if grep -q "$DATA_UUID" /etc/fstab 2>/dev/null; then
+    if ! grep "$DATA_UUID" /etc/fstab | grep -q 'nosuid'; then
+        sudo sed -i "/$DATA_UUID/ s/ext4.*defaults/ext4 defaults,nosuid,nodev/" /etc/fstab
+        info "  added nosuid,nodev to /mnt/data in fstab."
+    else
+        info "  /mnt/data already in fstab."
+    fi
+else
+    sudo mkdir -p /mnt/data
+    echo "$DATA_FSTAB" | sudo tee -a /etc/fstab >/dev/null
+    info "  added /mnt/data to fstab."
+fi
+sudo mkdir -p /mnt/data
+mountpoint -q /mnt/data || sudo mount /mnt/data
+info "  /mnt/data mounted."
+
+# ~/git symlink to data disk
+if [[ ! -e "$HOME/git" ]]; then
+    mkdir -p /mnt/data/git
+    ln -s /mnt/data/git "$HOME/git"
+    info "  created ~/git symlink to /mnt/data/git."
+elif [[ -L "$HOME/git" ]]; then
+    info "  ~/git symlink already exists."
+else
+    warn "  ~/git exists but is not a symlink - skipping."
+fi
+
 # nix-scan is a local flake -- clone if missing, then install
 if [[ ! -f "$HOME/git/nix-scan/flake.nix" ]]; then
-    mkdir -p "$HOME/git"
     git clone git@github.com:clearcmos/nix-scan.git "$HOME/git/nix-scan"
     info "  cloned nix-scan to ~/git/nix-scan."
 fi
@@ -448,29 +488,9 @@ kwriteconfig6 --file kdeglobals --group General --key ColorScheme BreezeDark || 
 kwriteconfig6 --file kdeglobals --group General --key ColorSchemeHash "" || true
 info "  set BreezeDark color scheme (applies on first KDE login)."
 
-# --- Mount Points (fstab) ---
+# --- Mount Points (NAS) ---
 
-info "Configuring mount points..."
-
-# Data disk (nvme0n1p1)
-DATA_UUID="60d4fb47-d8fd-4445-adb0-2fd303da775b"
-DATA_FSTAB="UUID=$DATA_UUID /mnt/data ext4 defaults,nosuid,nodev 0 2"
-if grep -q "$DATA_UUID" /etc/fstab 2>/dev/null; then
-    # Ensure nosuid,nodev flags are present on existing entry
-    if ! grep "$DATA_UUID" /etc/fstab | grep -q 'nosuid'; then
-        sudo sed -i "/$DATA_UUID/ s/ext4.*defaults/ext4 defaults,nosuid,nodev/" /etc/fstab
-        info "  added nosuid,nodev to /mnt/data in fstab."
-    else
-        info "  /mnt/data already in fstab."
-    fi
-else
-    sudo mkdir -p /mnt/data
-    echo "$DATA_FSTAB" | sudo tee -a /etc/fstab >/dev/null
-    info "  added /mnt/data to fstab."
-fi
-sudo mkdir -p /mnt/data
-mountpoint -q /mnt/data || sudo mount /mnt/data
-info "  /mnt/data mounted."
+info "Configuring NAS mount..."
 
 # NAS (Synology)
 SYNO_SHARE="//192.168.1.4/syno"
@@ -516,6 +536,16 @@ if mountpoint -q /mnt/syno; then
     info "  /mnt/syno mounted."
 else
     warn "  /mnt/syno failed to mount — NAS steps will be skipped."
+fi
+
+# ~/Downloads symlink to NAS
+if [[ ! -e "$HOME/Downloads" ]]; then
+    ln -s /mnt/syno/downloads "$HOME/Downloads"
+    info "  created ~/Downloads symlink to /mnt/syno/downloads."
+elif [[ -L "$HOME/Downloads" ]]; then
+    info "  ~/Downloads symlink already exists."
+else
+    warn "  ~/Downloads exists but is not a symlink - skipping."
 fi
 
 # --- SSH Key (restore from NAS, passphrase-encrypted) ---
@@ -680,6 +710,7 @@ copy_config "$SCRIPT_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
 copy_config "$SCRIPT_DIR/config/kde/kwinoutputconfig.json" "$HOME/.config/kwinoutputconfig.json"
 copy_config "$SCRIPT_DIR/config/kde/kcminputrc" "$HOME/.config/kcminputrc"
 copy_config "$SCRIPT_DIR/config/kde/kxkbrc" "$HOME/.config/kxkbrc"
+copy_config "$SCRIPT_DIR/config/kde/kwalletrc" "$HOME/.config/kwalletrc"
 
 # Bluetooth main config (system-level, requires root)
 BT_CONFIG_CHANGED=false
@@ -1242,6 +1273,12 @@ if [[ -d "$TIMER_DIR" ]]; then
     fi
 else
     warn "  ~/git/timer-cli not found, skipping."
+fi
+
+# --- Work Profile (optional) ---
+
+if [[ "$WORK_PROFILE" == true ]]; then
+    source "$SCRIPT_DIR/setup-work-profile.sh"
 fi
 
 # --- Done ---

@@ -22,7 +22,20 @@ Top failure modes and recovery steps for the find-conversation skill.
 
 ---
 
-## 2. Too many matches
+## 2. Python JSON parser finds nothing but grep finds the content
+
+**Symptom:** Structured Python parsing of JSONL returns no matching user messages, but raw `grep -o` on the same files reveals the content.
+
+**Cause:** JSONL content is not always cleanly accessible via `obj['message']['content']`. Content may be in tool call results, nested content block arrays, escaped strings, or system-injected fields. The Python parser only checks one path.
+
+**Recovery:**
+1. Use `grep -o '.\{0,80\}<keyword>.\{0,80\}'` to extract context around keyword matches
+2. Filter out lines containing `find-conversation` (those are the current session echoing the search terms)
+3. The surrounding context usually reveals whether this is a real match (user message) or noise (CLAUDE.md, tool output)
+
+---
+
+## 3. Too many matches
 
 **Symptom:** grep returns dozens of files for common terms.
 
@@ -35,7 +48,7 @@ Top failure modes and recovery steps for the find-conversation skill.
 
 ---
 
-## 3. Wrong directory decoded from project folder name
+## 4. Wrong directory decoded from project folder name
 
 **Symptom:** The `--resume` command fails because the working directory doesn't match.
 
@@ -53,7 +66,7 @@ head -5 <file>.jsonl | grep -o '"cwd":"[^"]*"' | head -1
 
 ---
 
-## 4. Session UUID exists but `--resume` fails
+## 5. Session UUID exists but `--resume` fails
 
 **Symptom:** The file exists but `claude --resume <uuid>` reports "session not found".
 
@@ -69,7 +82,7 @@ head -5 <file>.jsonl | grep -o '"cwd":"[^"]*"' | head -1
 
 ---
 
-## 5. Subagent file matches but parent session unclear
+## 6. Subagent file matches but parent session unclear
 
 **Symptom:** Keywords only appear in a subagent transcript (`subagents/agent-*.jsonl`).
 

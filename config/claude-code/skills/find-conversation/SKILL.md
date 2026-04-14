@@ -137,9 +137,19 @@ See [SEARCH-STRATEGY.md](SEARCH-STRATEGY.md) for detailed scoring heuristics.
 
 ## Step 4: Confirm the Match
 
-Once you have a few candidates, **extract the first real user messages** from each to quickly identify the right conversation. This is much faster than iterating with more keyword greps. See the "Extracting User Messages from JSONL" section in [SEARCH-STRATEGY.md](SEARCH-STRATEGY.md) for the reusable script.
+Once you have candidates, use **raw grep with context** as the primary identification method. Structured JSON parsing of JSONL content is fragile because message content is often deeply nested, escaped, or split across content blocks in ways that break key-based access. Raw text search is more reliable:
 
-Run the extraction across all candidates in a single loop. This usually identifies the correct conversation in one step.
+```bash
+# Show the keyword in context -- this reveals what the conversation was about
+for f in <candidates>; do
+  echo "=== $(basename $f) ==="
+  stat -c "%y" "$f" | cut -d. -f1
+  grep -o '.\{0,80\}<keyword>.\{0,80\}' "$f" | grep -v 'find-conversation' | head -3
+  echo ""
+done
+```
+
+This is usually enough to identify the right conversation in one step. If you need cleaner user message extraction (e.g. to show the opening question), use the Python script in [SEARCH-STRATEGY.md](SEARCH-STRATEGY.md) as a fallback.
 
 Present the candidates to the user with:
 - **Session ID** (the UUID from the filename)

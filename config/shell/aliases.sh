@@ -43,14 +43,18 @@ cpush() {
 }
 
 # Standard
-alias ls='ls -lh --color=auto --group-directories-first'
+# ls is a function in functions.sh (adds git ownership tags in ~/git)
 compress() { local target="${1:-.}"; local name=$(basename "$(realpath "$target")"); tar --zstd -cf "${name}.tar.zst" -C "$target" .; }
 function du { command du -h --max-depth=1 "$@" | sort -h; }
 alias gen='openssl rand -base64 45'
+rcs() { rclone sync "$1" "$2" --metadata --transfers=32 --checkers=32 --stats-one-line -P -L --exclude-from <(find "$1" -xtype l -printf '%P\n'); }
 alias mine='sudo chown -R $(whoami):$(whoami)'
 alias r='sudo -i'
 alias cpath='pwd | tr -d '\''\n'\'' | wl-copy && echo "Copied: $(pwd)"'
 alias addons='cd "/mnt/data/games/World of Warcraft/_anniversary_/Interface/AddOns"'
+
+# Bitwarden
+alias bwfetch='~/arch/bin/bwfetch'
 
 # Google Tasks CLI
 alias task='uv run ~/git/tasks/task.py'

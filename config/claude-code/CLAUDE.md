@@ -11,6 +11,10 @@ These apply to all projects.
 - When writing README.md files for dev project repos, do not overstate or oversell. Avoid editorial language (e.g. "powerful", "elegant", "blazing fast", "robust", "seamless"). Describe what the project does factually and concisely.
 - When creating new repos, always use `main` as the default branch name, never `master`.
 
+# System Configuration Repo
+
+`~/arch` is the single source of truth for this machine's configuration (packages, services, dotfiles, firewall, etc.). When making system-level or user-level changes in any project, consult `~/arch/CLAUDE.md` for conventions, security model, and deployment rules. All config files must live in that repo and be deployed via its `setup.sh`.
+
 # KDE/KWin Window Debugging (Wayland)
 
 Standard X11 tools (wmctrl, xdotool, kdotool) do not work on Wayland. To inspect or manipulate windows on KDE Plasma Wayland:
@@ -38,3 +42,7 @@ The Agent SDK (`claude-agent-sdk` Python package) spawns the Claude Code CLI as 
 - No `ANTHROPIC_API_KEY` needed when the CLI is logged in via a Max/Pro plan
 - The Anthropic docs warning about API keys applies to third-party developers distributing products, not personal tooling on your own machine
 - Reference project with working tests: `~/claude-agent-sdk/`
+
+# API Documentation
+
+`~/git/api-docs` contains API documentation for various services. Reference this when working with APIs that may have docs there.

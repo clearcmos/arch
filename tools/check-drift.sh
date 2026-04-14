@@ -121,6 +121,7 @@ check "$REPO_DIR/config/kde/powerdevilrc" "$HOME/.config/powerdevilrc"
 check "$REPO_DIR/config/kde/ksmserverrc" "$HOME/.config/ksmserverrc"
 check "$REPO_DIR/config/kde/kcminputrc" "$HOME/.config/kcminputrc"
 check "$REPO_DIR/config/kde/kxkbrc" "$HOME/.config/kxkbrc"
+check "$REPO_DIR/config/kde/kwalletrc" "$HOME/.config/kwalletrc"
 
 # User systemd services (copied)
 check "$REPO_DIR/config/xremap/xremap.service" "$HOME/.config/systemd/user/xremap.service"

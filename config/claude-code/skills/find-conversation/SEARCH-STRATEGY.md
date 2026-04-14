@@ -100,7 +100,9 @@ done | sort -rn
 
 ## Extracting User Messages from JSONL
 
-After narrowing to a few candidates with keyword grep, **immediately extract the first real user messages** to identify conversations. This is far more efficient than repeatedly grepping for more keywords.
+**Important:** Prefer raw `grep -o` with context (see Step 4 in SKILL.md) over structured JSON parsing for initial identification. The Python approach below is useful for clean display of opening messages, but it can miss content that is nested in tool results, multi-block content arrays, or escaped strings. If the Python parser returns nothing, fall back to raw grep -- it searches the full text regardless of JSON structure.
+
+After narrowing to a few candidates with keyword grep, extract the first real user messages to identify conversations:
 
 The JSONL format stores user messages with `"type": "user"` at the top level. Content is nested at `obj['message']['content']` and can be a plain string or a list of content blocks (each with `"type": "text"` and a `"text"` field). Other top-level `type` values include `"permission-mode"`, `"file-history-snapshot"`, `"assistant"`, etc. -- only `"user"` contains user messages. Skip boilerplate lines (skill invocations, command output, etc.):
 

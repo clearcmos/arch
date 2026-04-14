@@ -1,0 +1,4 @@
+[Wallet]
+Close When Idle=false
+First Use=false
+Idle Timeout=0
