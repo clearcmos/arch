@@ -31,6 +31,18 @@ deploy "$SCRIPT_DIR/.zshrc-work" "$HOME/.zshrc"
 deploy "$SCRIPT_DIR/aliases-work.sh" "$HOME/.config/shell/aliases-work.sh"
 deploy "$SCRIPT_DIR/functions-work.sh" "$HOME/.config/shell/functions-work.sh"
 
+# Idempotent symlink
+link() {
+    local src="$1"
+    local dest="$2"
+    mkdir -p "$(dirname "$dest")"
+    ln -sf "$src" "$dest"
+    info "linked $dest"
+}
+
+# Claude Code global config
+link "$SCRIPT_DIR/../config/claude-code/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+
 # KDE Wallet config (shared with primary user)
 deploy "$SCRIPT_DIR/../config/kde/kwalletrc" "$HOME/.config/kwalletrc"
 
@@ -121,13 +133,13 @@ if [[ -f "$HOME/.gitconfig" ]]; then
     info "  Git config already exists, skipping."
 else
     read -rp "  Git name (for commits): " git_name < /dev/tty
-    read -rp "  Git email (work, used for ~/git/): " git_email_work < /dev/tty
-    read -rp "  Git email (personal, used for ~/git/personal/): " git_email_personal < /dev/tty
+    read -rp "  Git email (personal, default): " git_email_personal < /dev/tty
+    read -rp "  Git email (work, for Optable repos): " git_email_work < /dev/tty
 
     cat > "$HOME/.gitconfig" <<EOF
 [user]
     name = $git_name
-    email = $git_email_work
+    email = $git_email_personal
     useConfigOnly = true
 
 [init]
@@ -140,28 +152,25 @@ else
     autoSetupRemote = true
 
 [core]
-    sshCommand = ssh -i ~/.ssh/id_ed25519_work
+    sshCommand = ssh -i ~/.ssh/id_ed25519_personal
 
 [url "git@github.com:"]
     insteadOf = https://github.com/
 
-[includeIf "gitdir:~/git/personal/"]
-    path = ~/.gitconfig-personal
-
-[includeIf "gitdir:~/arch/"]
-    path = ~/.gitconfig-personal
+[includeIf "hasconfig:remote.*.url:git@github.com:Optable/**"]
+    path = ~/.gitconfig-work
 EOF
     info "  wrote ~/.gitconfig"
 
-    cat > "$HOME/.gitconfig-personal" <<EOF
+    cat > "$HOME/.gitconfig-work" <<EOF
 [user]
     name = $git_name
-    email = $git_email_personal
+    email = $git_email_work
 
 [core]
-    sshCommand = ssh -i ~/.ssh/id_ed25519_personal
+    sshCommand = ssh -i ~/.ssh/id_ed25519_work
 EOF
-    info "  wrote ~/.gitconfig-personal"
+    info "  wrote ~/.gitconfig-work"
 fi
 
 # --- GitHub CLI Auth ---
