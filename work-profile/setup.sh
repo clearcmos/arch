@@ -130,9 +130,6 @@ else
     email = $git_email_work
     useConfigOnly = true
 
-[includeIf "gitdir:~/git/personal/"]
-    path = ~/.gitconfig-personal
-
 [init]
     defaultBranch = main
 
@@ -147,6 +144,12 @@ else
 
 [url "git@github.com:"]
     insteadOf = https://github.com/
+
+[includeIf "gitdir:~/git/personal/"]
+    path = ~/.gitconfig-personal
+
+[includeIf "gitdir:~/arch/"]
+    path = ~/.gitconfig-personal
 EOF
     info "  wrote ~/.gitconfig"
 
