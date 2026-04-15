@@ -128,6 +128,7 @@ check "$REPO_DIR/config/xremap/xremap.service" "$HOME/.config/systemd/user/xrema
 check "$REPO_DIR/config/systemd/user/screen-off-toggle.service" "$HOME/.config/systemd/user/screen-off-toggle.service"
 check "$REPO_DIR/config/systemd/user/screen-off-watcher.service" "$HOME/.config/systemd/user/screen-off-watcher.service"
 check "$REPO_DIR/config/systemd/user/bt-toggle.service" "$HOME/.config/systemd/user/bt-toggle.service"
+check "$REPO_DIR/config/systemd/user/bw-serve.service" "$HOME/.config/systemd/user/bw-serve.service"
 
 # SSH (copied)
 check "$REPO_DIR/config/ssh/authorized_keys" "$HOME/.ssh/authorized_keys"

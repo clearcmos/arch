@@ -7,7 +7,7 @@ set -euo pipefail
 
 if [[ "${1:-}" == "--bw" ]]; then
     shift
-    CLOUDFLARE_DNS_API_TOKEN="$(bwbio get password CLOUDFLARE_API_TOKEN 2>/dev/null)" || {
+    CLOUDFLARE_DNS_API_TOKEN="$(bwfetch CLOUDFLARE_API_TOKEN credential 2>/dev/null)" || {
         echo "Error: Failed to get token from Bitwarden"
         exit 1
     }

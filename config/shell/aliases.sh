@@ -12,35 +12,8 @@ alias check-updates='~/arch/tools/check-updates.sh'
 alias gvis='ghrepo visibility'
 alias gvisibility='ghrepo visibility'
 
-# Claude Code inline push (reuses /push skill)
-cpush() {
-  claude -p \
-    --verbose \
-    --output-format stream-json \
-    --dangerously-skip-permissions \
-    --tools "Bash,Read,Edit" \
-    --append-system-prompt-file ~/arch/config/claude-code/commands/push.md \
-    "Run /push.${1:+ Use this commit message: $1}" \
-    2>&1 | jq -rj '
-      if .type == "assistant" then
-        [.message.content[]? |
-          if .type == "tool_use" then
-            "\(.input.command // .input.file_path // .name)\n"
-          elif .type == "text" then
-            "\n\(.text)\n"
-          else empty end
-        ] | join("")
-      elif .type == "user" and .tool_use_result then
-        (if (.tool_use_result | type) == "string" then .tool_use_result
-         else (.tool_use_result.stdout // "") end) |
-        if . != "" then
-          split("\n") | if length > 6 then .[:3] + ["  ...(\(length - 3) more lines)"] else . end |
-          map("  \(.)") | join("\n") + "\n"
-        else empty end
-      elif .type == "result" then empty
-      else empty end
-    ' | mdriver
-}
+# Quick commit and push with Ollama-generated messages
+alias cpush='~/arch/bin/cpush'
 
 # Standard
 # ls is a function in functions.sh (adds git ownership tags in ~/git)

@@ -6,25 +6,64 @@ ls() {
     local resolved clean name tag
     resolved=$(readlink -f "$PWD" 2>/dev/null)
     if [[ ("$PWD" == "$HOME/git" || "$resolved" == "/mnt/data/git") && $# -eq 0 ]]; then
-        command ls -lh --color=always --group-directories-first | while IFS= read -r line; do
-            if [[ "$line" == total* ]]; then
-                echo "$line"
-                continue
+        local -A ownership gstat
+        local -a mine_lines fork_lines local_lines other_lines
+        local staged modified deleted untracked parts porcelain
+        for name in */; do
+            name="${name%/}"
+            if [[ ! -d "$name/.git" ]]; then
+                ownership[$name]=local
+            elif [[ -z "$(git -C "$name" remote 2>/dev/null)" ]]; then
+                ownership[$name]=local
+            elif git -C "$name" remote get-url origin 2>/dev/null | grep -q clearcmos; then
+                ownership[$name]=mine
+            elif git -C "$name" remote 2>/dev/null | while read -r r; do
+                git -C "$name" remote get-url "$r" 2>/dev/null
+            done | grep -q clearcmos; then
+                ownership[$name]=fork
             fi
+            if [[ -d "$name/.git" ]]; then
+                porcelain=$(git -C "$name" status --porcelain 2>/dev/null)
+                if [[ -n "$porcelain" ]]; then
+                    staged=0 modified=0 deleted=0 untracked=0
+                    while IFS= read -r s; do
+                        case "${s[1]}" in
+                            [AMRTC]) ((staged++)) ;;
+                            D)       ((deleted++)) ;;
+                        esac
+                        case "${s[2]}" in
+                            [MT]) ((modified++)) ;;
+                            D)    ((deleted++)) ;;
+                            \?)   ((untracked++)) ;;
+                        esac
+                    done <<< "$porcelain"
+                    parts=()
+                    (( staged > 0 ))    && parts+=("${staged}S")
+                    (( modified > 0 ))  && parts+=("${modified}M")
+                    (( deleted > 0 ))   && parts+=("${deleted}D")
+                    (( untracked > 0 )) && parts+=("${untracked}?")
+                    (( ${#parts} > 0 )) && gstat[$name]=" (${(j: :)parts})"
+                fi
+            fi
+        done
+        command ls -lh --color=always --group-directories-first | while IFS= read -r line; do
+            if [[ "$line" == total* ]]; then continue; fi
             clean=$(printf '%s' "$line" | sed 's/\x1b\[[0-9;]*m//g')
             name="${clean##* }"
             tag=""
-            if [[ -d "$name/.git" ]]; then
-                if git -C "$name" remote get-url origin 2>/dev/null | grep -q clearcmos; then
-                    tag=$' \e[32m[mine]\e[0m'
-                elif git -C "$name" remote 2>/dev/null | while read -r r; do
-                    git -C "$name" remote get-url "$r" 2>/dev/null
-                done | grep -q clearcmos; then
-                    tag=$' \e[33m[fork]\e[0m'
-                fi
-            fi
-            printf '%s%s\n' "$line" "$tag"
+            case "${ownership[$name]}" in
+                mine)  tag=$' \e[32m[mine]\e[0m' ;;
+                fork)  tag=$' \e[33m[fork]\e[0m' ;;
+                local) tag=$' \e[36m[local]\e[0m' ;;
+            esac
+            case "${ownership[$name]}" in
+                mine)  mine_lines+=("$(printf '%s%s%s' "$line" "$tag" "${gstat[$name]}")") ;;
+                fork)  fork_lines+=("$(printf '%s%s%s' "$line" "$tag" "${gstat[$name]}")") ;;
+                local) local_lines+=("$(printf '%s%s%s' "$line" "$tag" "${gstat[$name]}")") ;;
+                *)     other_lines+=("$(printf '%s%s' "$line" "${gstat[$name]}")") ;;
+            esac
         done
+        printf '%s\n' "${mine_lines[@]}" "${fork_lines[@]}" "${local_lines[@]}" "${other_lines[@]}"
     else
         command ls -lh --color=auto --group-directories-first "$@"
     fi

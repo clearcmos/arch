@@ -1196,8 +1196,21 @@ mkdir -p "$HOME/.config/systemd/user"
 cp "$SCRIPT_DIR/config/systemd/user/screen-off-toggle.service" "$HOME/.config/systemd/user/"
 cp "$SCRIPT_DIR/config/systemd/user/screen-off-watcher.service" "$HOME/.config/systemd/user/"
 cp "$SCRIPT_DIR/config/systemd/user/bt-toggle.service" "$HOME/.config/systemd/user/"
+cp "$SCRIPT_DIR/config/systemd/user/bw-serve.service" "$HOME/.config/systemd/user/"
 systemctl --user daemon-reload
 info "  deployed user systemd services."
+
+# Enable Bitwarden CLI REST API (requires master password in ~/.local/share/bw/master-password)
+if [ -f "${XDG_DATA_HOME:-$HOME/.local/share}/bw/master-password" ]; then
+    if ! systemctl --user is-enabled bw-serve.service &>/dev/null; then
+        systemctl --user enable --now bw-serve.service
+        info "  enabled bw-serve."
+    else
+        info "  bw-serve already enabled."
+    fi
+else
+    info "  skipping bw-serve (no master password file)."
+fi
 
 # Deploy KWin scripts
 chmod +x "$SCRIPT_DIR/config/kwin/setup-kwin-scripts.sh"

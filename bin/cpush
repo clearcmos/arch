@@ -1,0 +1,182 @@
+#!/usr/bin/env bash
+# Non-interactive commit and push using Ollama for commit message generation.
+# Streams the AI response with real-time markdown rendering (like explain).
+# Usage: cpush [commit message]
+#   With a message: stages, commits with that message, and pushes.
+#   Without a message: generates one via Ollama, stages, commits, and pushes.
+set -euo pipefail
+
+MODEL="${OLLAMA_MODEL:-qwen2.5-coder:14b}"
+OLLAMA_URL="${AI_API_URL:-http://localhost:11434}"
+
+# Must be in a git repo
+if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    echo "Not a git repository." >&2
+    exit 1
+fi
+
+# Check for changes
+if [ -z "$(git status --porcelain)" ]; then
+    echo "No changes to commit."
+    exit 0
+fi
+
+# Show what we're working with
+echo "=== Changes ==="
+git status --short
+echo ""
+
+# If a message was provided, skip AI generation
+if [ -n "${1:-}" ]; then
+    message="$1"
+else
+    # Build diff context for the prompt
+    diff_content=$(git diff -U1 HEAD 2>/dev/null || git diff -U1 --cached)
+    untracked=$(git ls-files --others --exclude-standard)
+
+    # For untracked files, include a snippet of their content
+    untracked_context=""
+    if [ -n "$untracked" ]; then
+        while IFS= read -r f; do
+            snippet=$(head -c 500 "$f" 2>/dev/null || true)
+            if [ -n "$snippet" ]; then
+                untracked_context+="
+--- new file: ${f} ---
+${snippet}
+"
+            fi
+        done <<< "$untracked"
+    fi
+
+    recent_log=$(git log --oneline -5 2>/dev/null || true)
+
+    # Truncate large diffs
+    max_chars=12000
+    if [ ${#diff_content} -gt $max_chars ]; then
+        diff_content="${diff_content:0:$max_chars}
+... (truncated at ${max_chars} chars)"
+    fi
+
+    status_summary=$(git status --short)
+
+    system_prompt="You generate git commit messages. You respond with ONLY valid JSON, no other text.
+
+Rules for the commit message:
+- Max 72 chars
+- Lowercase after prefix, no period
+- Conventional commit format: feat:, fix:, chore:, docs:, refactor:, etc.
+- No scope in parentheses
+- Only use fix: for actual bugs
+
+Example input files:
+ M config/shell/aliases.sh
+ M config/shell/functions.sh
+ M setup.sh
+?? bin/newscript
+
+Example response:
+{\"changes\": [\"add newscript utility\", \"update shell aliases and functions\", \"update setup deployment\"], \"message\": \"feat: add newscript, update shell aliases and functions\"}"
+
+    user_prompt="Generate a commit message for these changes. List ALL changes first, then write a message covering everything.
+
+Recent commits for style:
+${recent_log}
+
+Files:
+${status_summary}
+
+Diff:
+${diff_content}
+${untracked_context}
+
+Respond with JSON: {\"changes\": [...], \"message\": \"...\"}"
+
+    # Build the JSON payload using /api/chat for better instruction following
+    payload=$(jq -n \
+        --arg model "$MODEL" \
+        --arg system "$system_prompt" \
+        --arg user "$user_prompt" \
+        '{model: $model, messages: [
+            {role: "system", content: $system},
+            {role: "user", content: $user}
+          ], stream: true, format: "json",
+          options: {temperature: 0, num_predict: 256}}')
+
+    echo "Generating commit message with ${MODEL}..."
+    echo ""
+
+    # Stream from Ollama chat API and extract the commit message from JSON
+    message=$(python3 -c "
+import json
+import sys
+import urllib.request
+
+payload = sys.stdin.buffer.read()
+req = urllib.request.Request(
+    '${OLLAMA_URL}/api/chat',
+    data=payload,
+    headers={'Content-Type': 'application/json'},
+)
+
+buffer = ''
+try:
+    with urllib.request.urlopen(req) as resp:
+        for line in resp:
+            chunk = json.loads(line)
+            token = chunk.get('message', {}).get('content', '')
+            if token:
+                buffer += token
+            if chunk.get('done'):
+                break
+except urllib.error.URLError:
+    print('Could not connect to Ollama.', file=sys.stderr)
+    sys.exit(1)
+
+# Parse JSON response and extract the message field
+buffer = buffer.strip()
+if not buffer:
+    print('Ollama returned an empty response.', file=sys.stderr)
+    sys.exit(1)
+
+try:
+    data = json.loads(buffer)
+    msg = data.get('message', '').strip()
+except (json.JSONDecodeError, AttributeError):
+    # Fallback: treat raw text as the message
+    msg = buffer.strip().strip('\`\"').split('\n')[0].strip()
+
+if not msg:
+    print('Could not extract commit message from response.', file=sys.stderr)
+    sys.exit(1)
+print(msg)
+" <<< "$payload")
+
+    if [ -z "$message" ]; then
+        echo "Failed to generate commit message." >&2
+        exit 1
+    fi
+
+fi
+
+# Display the final commit message
+echo -e "\033[1;36m$message\033[0m"
+echo ""
+
+# Confirm before committing
+read -rp "Press ENTER to commit and push, or Ctrl-C to abort..."
+
+# Stage all changes
+git add -A
+
+# Commit
+git commit -m "$message"
+
+# Push
+echo ""
+branch=$(git branch --show-current)
+remote="origin"
+# If multiple remotes, prefer clearcmos
+if git remote -v 2>/dev/null | grep -q clearcmos; then
+    remote=$(git remote -v | grep clearcmos | head -1 | awk '{print $1}')
+fi
+git push "$remote" "$branch"

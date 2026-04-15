@@ -5,12 +5,32 @@
 #        bwfetch <name> <field>   - prints value to stdout (for scripting)
 set -euo pipefail
 
+BW_API="http://127.0.0.1:8087"
 name="${1:-}"
 field="${2:-}"
 
+# Ensure bw serve is running
+if ! curl -sf "$BW_API/status" &>/dev/null; then
+    echo "Starting bw-serve..." >&2
+    systemctl --user start bw-serve.service
+    # Wait for it to come up
+    for i in $(seq 1 20); do
+        curl -sf "$BW_API/status" &>/dev/null && break
+        sleep 0.25
+    done
+    if ! curl -sf "$BW_API/status" &>/dev/null; then
+        echo "Failed to start bw-serve" >&2
+        exit 1
+    fi
+fi
+
+bw_api() {
+    curl -sf "$BW_API/$1"
+}
+
 if [ -z "$name" ]; then
     # Browse mode - list all vault items, pick one, then pick a field
-    all_items=$(bwbio list items 2>/dev/null)
+    all_items=$(bw_api "list/object/items" | jq '.data.data')
     if [ -z "$all_items" ] || [ "$(echo "$all_items" | jq 'length')" -eq 0 ]; then
         echo "Vault is empty or locked" >&2
         exit 1
@@ -29,8 +49,8 @@ if [ -z "$name" ]; then
 fi
 
 # Get all items matching the search term, then filter for exact name match (case-insensitive)
-items=$(bwbio list items --search "$name" 2>/dev/null | jq -r --arg name "$name" '
-    [.[] | select(.name | ascii_downcase == ($name | ascii_downcase))]
+items=$(bw_api "list/object/items?search=$name" | jq -r --arg name "$name" '
+    [.data.data[] | select(.name | ascii_downcase == ($name | ascii_downcase))]
 ')
 
 count=$(echo "$items" | jq 'length')
