@@ -31,7 +31,7 @@ if [ -n "${1:-}" ]; then
     message="$1"
 else
     # Build diff context for the prompt
-    diff_content=$(git diff -U1 HEAD 2>/dev/null || git diff -U1 --cached)
+    diff_content=$(git diff -U3 HEAD 2>/dev/null || git diff -U3 --cached)
     untracked=$(git ls-files --others --exclude-standard)
 
     # For untracked files, include a snippet of their content
@@ -59,37 +59,43 @@ ${snippet}
 
     status_summary=$(git status --short)
 
-    system_prompt="You generate git commit messages. You respond with ONLY valid JSON, no other text.
+    system_prompt="You generate git commit messages. Respond with ONLY valid JSON.
 
-Rules for the commit message:
-- Max 72 chars
+Rules:
+- Under 72 chars, under 10 words after the prefix
 - Lowercase after prefix, no period
-- Conventional commit format: feat:, fix:, chore:, docs:, refactor:, etc.
+- Conventional commits: feat:, fix:, chore:, docs:, refactor:, etc.
 - No scope in parentheses
-- Only use fix: for actual bugs
+- fix: is for actual bugs only
+- refactor: when replacing, renaming, or restructuring existing code
+- feat: only for genuinely new capabilities, not replacements
 
-Example input files:
- M config/shell/aliases.sh
- M config/shell/functions.sh
- M setup.sh
-?? bin/newscript
+Examples:
+Diff: -bw_cmd = \"bw\"  +passphrase_cmd = \"cmd\"
+Result: {\"changes\": [\"replace bw_cmd with generic passphrase_cmd\"], \"message\": \"refactor: replace bw_cmd with generic passphrase_cmd\"}
 
-Example response:
-{\"changes\": [\"add newscript utility\", \"update shell aliases and functions\", \"update setup deployment\"], \"message\": \"feat: add newscript, update shell aliases and functions\"}"
+Diff: -func old_name()  +func new_name()
+Result: {\"changes\": [\"rename old_name to new_name\"], \"message\": \"refactor: rename old_name to new_name\"}
 
-    user_prompt="Generate a commit message for these changes. List ALL changes first, then write a message covering everything.
+Files: ?? bin/newscript, M setup.sh
+Result: {\"changes\": [\"add newscript\", \"deploy newscript in setup\"], \"message\": \"feat: add newscript utility\"}"
 
-Recent commits for style:
+    user_prompt="Generate a commit message for these changes.
+
+<recent-commits>
 ${recent_log}
+</recent-commits>
 
-Files:
+<files>
 ${status_summary}
+</files>
 
-Diff:
+<diff>
 ${diff_content}
 ${untracked_context}
+</diff>
 
-Respond with JSON: {\"changes\": [...], \"message\": \"...\"}"
+JSON: {\"changes\": [...], \"message\": \"...\"}"
 
     # Build the JSON payload using /api/chat for better instruction following
     payload=$(jq -n \
@@ -99,8 +105,12 @@ Respond with JSON: {\"changes\": [...], \"message\": \"...\"}"
         '{model: $model, messages: [
             {role: "system", content: $system},
             {role: "user", content: $user}
-          ], stream: true, format: "json",
-          options: {temperature: 0, num_predict: 256}}')
+          ], stream: true,
+          format: {type: "object", properties: {
+            changes: {type: "array", items: {type: "string"}},
+            message: {type: "string"}
+          }, required: ["changes", "message"]},
+          options: {temperature: 0, num_predict: 512, top_p: 0.8}}')
 
     echo "Generating commit message with ${MODEL}..."
     echo ""
@@ -154,6 +164,11 @@ print(msg)
     if [ -z "$message" ]; then
         echo "Failed to generate commit message." >&2
         exit 1
+    fi
+
+    # Warn if over 72 chars
+    if [ ${#message} -gt 72 ]; then
+        echo -e "\033[1;33mWarning: message is ${#message} chars (limit 72)\033[0m"
     fi
 
 fi

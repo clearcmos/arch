@@ -3,15 +3,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="$SCRIPT_DIR/setup.log"
-
-# --- Flags ---
-
-WORK_PROFILE=false
-for arg in "$@"; do
-    case "$arg" in
-        --work-profile) WORK_PROFILE=true ;;
-    esac
-done
 exec > >(tee "$LOG_FILE") 2>&1
 trap 'sleep 0.1' EXIT  # allow tee to flush
 echo "=== setup.sh started at $(date) ==="
@@ -169,7 +160,7 @@ fi
 
 # Nix store signing key (required for nixos-rebuild --target-host to misc/jimmich)
 NIX_SIGNING_KEY="/etc/nix/signing-key.sec"
-NIX_SIGNING_BACKUP="/mnt/syno/backups/cmos/nix-signing-key.age"
+NIX_SIGNING_BACKUP="/mnt/syno/security/cmos-arch/nix-signing-key.age"
 if [[ -f "$NIX_SIGNING_KEY" ]]; then
     info "Nix signing key already exists, skipping."
 else
@@ -548,11 +539,21 @@ else
     warn "  ~/Downloads exists but is not a symlink - skipping."
 fi
 
+# ~/Pictures symlink to NAS
+if [[ ! -e "$HOME/Pictures" ]]; then
+    ln -s /mnt/syno/photos/unsorted/cmos "$HOME/Pictures"
+    info "  created ~/Pictures symlink to /mnt/syno/photos/unsorted/cmos/."
+elif [[ -L "$HOME/Pictures" ]]; then
+    info "  ~/Pictures symlink already exists."
+else
+    warn "  ~/Pictures exists but is not a symlink - skipping."
+fi
+
 # --- SSH Key (restore from NAS, passphrase-encrypted) ---
 
 info "Restoring SSH key..."
 SSH_KEY="$HOME/.ssh/id_ed25519"
-SSH_BACKUP_DIR="/mnt/syno/backups/cmos"
+SSH_BACKUP_DIR="/mnt/syno/security/cmos-arch"
 
 if [[ -f "$SSH_KEY" ]]; then
     info "  SSH key already exists, skipping."
@@ -1289,10 +1290,6 @@ else
 fi
 
 # --- Work Profile (optional) ---
-
-if [[ "$WORK_PROFILE" == true ]]; then
-    source "$SCRIPT_DIR/setup-work-profile.sh"
-fi
 
 # --- Done ---
 
