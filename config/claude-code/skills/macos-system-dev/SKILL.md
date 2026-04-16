@@ -3,10 +3,6 @@ name: macos-system-dev
 description: "macOS system programming with Swift — IOKit, CoreGraphics, private frameworks (SkyLight, CoreDisplay), display management, SPM multi-target projects, menu bar apps. Use when working with macOS display APIs, IOKit service matching/notifications, dlopen/dlsym for private frameworks, MenuBarExtra, app bundling, or codesigning. Includes known macOS Tahoe workarounds."
 user-invocable: true
 disable-model-invocation: false
-metadata:
-  author: nicholas
-  version: 1.0.0
-  category: domain-specific-intelligence
 ---
 
 # macOS System Development Reference

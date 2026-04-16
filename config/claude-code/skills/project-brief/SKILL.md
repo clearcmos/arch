@@ -3,10 +3,6 @@ name: project-brief
 description: Generates a polished, self-contained HTML technical brief for a project. Use when user says "project brief", "brief me on this", "build a brief", "create a brief for", "summarize this project", or provides a repo/idea/material and wants a structured visual summary. Produces a single HTML file with architecture diagrams, key decisions, engineering patterns, talking points, and quick reference — all sanitized with no proprietary details.
 user-invocable: true
 disable-model-invocation: false
-metadata:
-  author: nicholas
-  version: 1.0.0
-  category: document-creation
 ---
 
 # Project Brief Generator

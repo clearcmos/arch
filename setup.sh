@@ -223,6 +223,16 @@ else
     warn "  ~/git exists but is not a symlink - skipping."
 fi
 
+# ~/nextcloud symlink to data disk
+if [[ ! -e "$HOME/nextcloud" ]]; then
+    ln -s /mnt/data/nextcloud "$HOME/nextcloud"
+    info "  created ~/nextcloud symlink to /mnt/data/nextcloud."
+elif [[ -L "$HOME/nextcloud" ]]; then
+    info "  ~/nextcloud symlink already exists."
+else
+    warn "  ~/nextcloud exists but is not a symlink - skipping."
+fi
+
 # nix-scan is a local flake -- clone if missing, then install
 if [[ ! -f "$HOME/git/nix-scan/flake.nix" ]]; then
     git clone git@github.com:clearcmos/nix-scan.git "$HOME/git/nix-scan"
@@ -280,12 +290,30 @@ export PATH="$HOME/git/depot_tools:$PATH"
 
 # --- uv tools ---
 
-if uv tool list 2>/dev/null | grep -q '^instawow '; then
-    info "instawow already installed, skipping."
+if uv tool list 2>/dev/null | grep -q '^playwright '; then
+    info "playwright already installed, skipping."
 else
-    info "Installing instawow (fork with ignore list)..."
-    uv tool install git+https://github.com/clearcmos/instawow.git
+    info "Installing playwright via uv..."
+    uv tool install playwright
 fi
+
+# --- Cargo Tools ---
+
+info "Installing cargo tools..."
+declare -A CARGO_TOOLS=(
+    [cargo-audit]="cargo-audit"
+    [tauri-cli]="cargo-tauri"
+    [mdriver]="mdriver"
+)
+for crate in "${!CARGO_TOOLS[@]}"; do
+    bin="${CARGO_TOOLS[$crate]}"
+    if [[ -f "$HOME/.cargo/bin/$bin" ]]; then
+        info "  $bin already installed, skipping."
+    else
+        info "  installing $crate..."
+        cargo install "$crate"
+    fi
+done
 
 # --- Enable Services (config-free) ---
 # Services that need config deployed first are enabled inline in their own sections:
@@ -293,6 +321,7 @@ fi
 #   fail2ban   (before sshd, brute force protection must be up first)
 #   sshd       (after nftables + fail2ban + config/ssh/sshd_config)
 #   bluetooth  (after config/bluetooth/main.conf)
+#   cups       (after config/cups/cupsd.conf)
 #   docker     (after config/docker/daemon.json)
 #   libvirtd   (after group memberships)
 #   cockpit    (after config/cockpit/cockpit.conf)
@@ -301,7 +330,7 @@ fi
 #   ydotool    (after service file)
 
 info "Enabling services..."
-for svc in NetworkManager greetd tailscaled systemd-oomd; do
+for svc in NetworkManager greetd tailscaled systemd-oomd fstrim.timer; do
     if systemctl is-enabled "$svc" &>/dev/null; then
         info "  $svc already enabled."
     else
@@ -811,10 +840,6 @@ link_config "$SCRIPT_DIR/config/claude-code/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
 link_config "$SCRIPT_DIR/config/claude-code/skills" "$HOME/.claude/skills"
 link_config "$SCRIPT_DIR/config/claude-code/commands" "$HOME/.claude/commands"
 
-# Instawow
-link_config "$SCRIPT_DIR/config/instawow/profiles/__default__/config.json" "$HOME/.config/instawow/profiles/__default__/config.json"
-link_config "$SCRIPT_DIR/config/instawow/profiles/__default__/ignore.txt" "$HOME/.config/instawow/profiles/__default__/ignore.txt"
-
 # Shell aliases
 link_config "$SCRIPT_DIR/config/shell/aliases.sh" "$HOME/.config/shell/aliases.sh"
 
@@ -1134,6 +1159,12 @@ if ! diff -q "$SCRIPT_DIR/config/cups/cupsd.conf" /etc/cups/cupsd.conf &>/dev/nu
     info "  deployed cupsd.conf and restarted CUPS."
 else
     info "  cupsd.conf already up to date."
+fi
+if systemctl is-enabled cups.socket &>/dev/null; then
+    info "  cups already enabled."
+else
+    sudo systemctl enable --now cups.socket
+    info "  enabled cups."
 fi
 
 # --- Ollama ---

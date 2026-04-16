@@ -9,10 +9,6 @@ description: >-
   "prepare for this role", or "create a study plan".
 user-invocable: true
 disable-model-invocation: false
-metadata:
-  author: nicholas
-  version: 1.0.0
-  category: document-creation
 ---
 
 # Study Plan Creator

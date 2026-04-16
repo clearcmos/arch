@@ -3,10 +3,6 @@ name: skill-creator
 description: Interactive guide for creating new Claude skills. Walks the user through use case definition, frontmatter generation, instruction writing, and validation. Use when user says "create a skill", "build a skill", "make a new skill", "help me write a skill", or "skill-creator".
 user-invocable: true
 disable-model-invocation: false
-metadata:
-  author: nicholas
-  version: 1.0.0
-  category: workflow-automation
 ---
 
 # Skill Creator
@@ -52,10 +48,6 @@ name: skill-name-here
 description: [What it does]. Use when user [trigger conditions]. [Key capabilities].
 user-invocable: true
 disable-model-invocation: false
-metadata:
-  author: [user or org name]
-  version: 1.0.0
-  category: [category]
 ---
 ```
 

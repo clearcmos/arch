@@ -3,10 +3,6 @@ name: addon-complexity
 description: Analyzes a WoW addon codebase and delivers a calibrated, honest complexity assessment with a realistic time estimate for a seasoned developer. Use when user says "addon-complexity", "how complex is this addon", "how long would this take to build", or "complexity audit". Reads Lua source, TOC, and CLAUDE.md to evaluate system count, API surface, novel vs boilerplate work, and overall scope. Produces a structured verdict with tier rating, key complexity drivers, per-phase time breakdown, and honest calibration against known reference points.
 user-invocable: true
 disable-model-invocation: false
-metadata:
-  author: nicholas
-  version: 1.0.0
-  category: Workflow Automation
 ---
 
 # Addon Complexity Auditor

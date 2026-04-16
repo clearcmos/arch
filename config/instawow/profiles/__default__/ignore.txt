@@ -1,7 +1,0 @@
-# Addon folders to skip during instawow reconcile.
-# One folder name per line.
-RXPGuides
-Scrap
-Scrap_Config
-Scrap_Merchant
-Wofi

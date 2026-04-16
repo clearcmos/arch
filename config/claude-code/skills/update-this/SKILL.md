@@ -3,10 +3,6 @@ name: update-this
 description: Comprehensive documentation audit and update workflow for NixOS infrastructure. Use when user says "update-this", "audit docs", "update documentation", "docs are outdated", or "sync docs with codebase". Runs parallel agents to cross-reference CLAUDE.md and docs/ against the actual codebase, then applies fixes.
 user-invocable: true
 disable-model-invocation: false
-metadata:
-  author: nicholas
-  version: 2.0.0
-  category: workflow-automation
 ---
 
 # Update-This: Documentation Audit & Sync

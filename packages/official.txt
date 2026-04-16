@@ -7,6 +7,8 @@ ark
 base-devel
 bat
 bind
+bitwarden
+bitwarden-cli
 bluez
 bluez-utils
 ccid
@@ -14,6 +16,8 @@ cifs-utils
 clinfo
 cmake
 cockpit
+cups
+cups-pk-helper
 curl
 ddcutil
 discord
@@ -28,6 +32,7 @@ ffmpeg
 flatpak
 fzf
 gamemode
+gammastep
 gcc
 ghostscript
 git
@@ -79,6 +84,7 @@ noto-fonts-cjk
 noto-fonts-emoji
 npm
 obs-studio
+obsidian
 okular
 ollama-rocm
 openai-codex
@@ -104,19 +110,21 @@ qt6-wayland
 radeontop
 rclone
 reaper
+restic
 rsync
 rustscan
 sane
 shellcheck
 smartmontools
 sqlite
+system-config-printer
 tailscale
 tesseract
 tesseract-data-eng
 tesseract-data-fra
-thunar
 tldr
 tree
+trivy
 ttf-dejavu
 ttf-jetbrains-mono
 ttf-liberation
@@ -132,6 +140,7 @@ virt-viewer
 vlc
 vlc-plugin-ffmpeg
 vulkan-radeon
+websocat
 wget
 whois
 wine-staging

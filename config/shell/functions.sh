@@ -77,11 +77,6 @@ nano() {
     ydotool key 191:1 191:0  # F21 -> set_mode: default
 }
 
-# Instawow wrapper - injects secrets from 1Password via op run
-instawow() {
-    op run --no-masking --env-file="$HOME/.config/op/secrets.env" -- instawow "$@"
-}
-
 # Cloudflare DNS wrappers - 1Password when GUI available, file fallback otherwise
 cf-list() {
     if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
