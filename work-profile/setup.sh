@@ -125,6 +125,11 @@ else
     info "  github.com already in known_hosts."
 fi
 
+# SSH config: github.com → personal key, github-work alias → work key.
+# Per-repo routing is handled by url.insteadOf rewrites in ~/.gitconfig.
+deploy "$SCRIPT_DIR/ssh-config" "$HOME/.ssh/config"
+chmod 600 "$HOME/.ssh/config"
+
 # --- Git Config ---
 
 info "Configuring Git..."
@@ -151,11 +156,19 @@ else
 [push]
     autoSetupRemote = true
 
-[core]
-    sshCommand = ssh -i ~/.ssh/id_ed25519_personal
-
 [url "git@github.com:"]
     insteadOf = https://github.com/
+
+[url "git@github-work:optable/"]
+    insteadOf = git@github.com:optable/
+    insteadOf = https://github.com/optable/
+
+[url "git@github-work:Optable/"]
+    insteadOf = git@github.com:Optable/
+    insteadOf = https://github.com/Optable/
+
+[includeIf "hasconfig:remote.*.url:git@github-work:**"]
+    path = ~/.gitconfig-work
 
 [includeIf "hasconfig:remote.*.url:git@github.com:Optable/**"]
     path = ~/.gitconfig-work
@@ -166,9 +179,6 @@ EOF
 [user]
     name = $git_name
     email = $git_email_work
-
-[core]
-    sshCommand = ssh -i ~/.ssh/id_ed25519_work
 EOF
     info "  wrote ~/.gitconfig-work"
 fi
