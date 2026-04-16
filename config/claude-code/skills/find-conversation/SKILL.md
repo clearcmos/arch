@@ -83,20 +83,19 @@ find ~/.claude/projects/ -name "*.jsonl" -newermt "2026-02-20" ! -newermt "2026-
 
 The current conversation (the one running this skill) will always match the user's search keywords because it contains them in the transcript. **Always exclude it from results.**
 
-After finding candidates, filter out any file that contains BOTH `find-conversation` AND the user's search keywords -- that's this session. Use this pattern:
+Identify the current session by finding the most recently modified JSONL in the current project directory. Do NOT use `find-conversation` as a filter -- previous sessions may also contain that string if the user ran this skill before, and filtering on it will falsely exclude valid results.
 
 ```bash
-# After building candidate list, remove the current session
+# Find the current session -- it's the most recently modified JSONL in the project dir
+current_session=$(ls -t ~/.claude/projects/<current-project-dir>/*.jsonl 2>/dev/null | head -1)
+
+# Then exclude just that one file from candidates
 candidates=()
 for f in $raw_candidates; do
-  if grep -ql "find-conversation" "$f" && grep -ql "<user-keyword>" "$f"; then
-    continue  # This is the current session -- skip
-  fi
+  [[ "$f" == "$current_session" ]] && continue
   candidates+=("$f")
 done
 ```
-
-Alternatively, identify the current session by finding the most recently modified JSONL in the current project directory that contains `find-conversation`. Exclude that file from results.
 
 ---
 

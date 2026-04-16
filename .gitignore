@@ -28,6 +28,9 @@ Thumbs.db
 # Binaries
 bin/zsc
 
+# Upgrade reports
+upgrades/
+
 # Misc
 nixos/
 pkgbuilds/

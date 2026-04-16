@@ -1,0 +1,10 @@
+Cache
+Code Cache
+Service Worker
+GPUCache
+GrShaderCache
+ShaderCache
+blob_storage
+IndexedDB
+Local Storage
+Session Storage
