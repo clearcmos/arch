@@ -301,7 +301,7 @@ fi
 #   ydotool    (after service file)
 
 info "Enabling services..."
-for svc in NetworkManager greetd pcscd tailscaled systemd-oomd; do
+for svc in NetworkManager greetd tailscaled systemd-oomd; do
     if systemctl is-enabled "$svc" &>/dev/null; then
         info "  $svc already enabled."
     else
@@ -310,11 +310,6 @@ for svc in NetworkManager greetd pcscd tailscaled systemd-oomd; do
     fi
 done
 
-# Ensure pcscd is running (socket-activated but needed before YubiKey steps)
-if ! systemctl is-active pcscd &>/dev/null; then
-    sudo systemctl start pcscd
-    info "  started pcscd (needed for YubiKey)."
-fi
 
 # --- Boot Entry Management (kernel-install / systemd-boot) ---
 

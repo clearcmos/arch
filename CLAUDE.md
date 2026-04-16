@@ -7,7 +7,7 @@ Idempotent Arch Linux post-install setup script and config files for a personal 
 - `setup.sh` - Main bash script. Idempotent: uses `--needed` flags, `command -v` guards, and `systemctl is-enabled` checks so re-runs are safe.
 - `packages/official.txt` - Pacman packages, one per line, alphabetically sorted. This is the single source of truth for all official packages.
 - `packages/aur.txt` - AUR packages (installed via paru), same format. Does not include custom forks or bootstrapped packages (paru, lite-xl-custom, foot-custom) -- those are built directly from GitHub repos in setup.sh via `makepkg -si` with a `pacman -Q` guard for idempotency.
-- All systemd service enables are inline in `setup.sh`, co-located with their config deployment. Config-free services (NetworkManager, greetd, pcscd, tailscaled) are enabled early; config-dependent services are enabled after their config is deployed.
+- All systemd service enables are inline in `setup.sh`, co-located with their config deployment. Config-free services (NetworkManager, greetd, tailscaled) are enabled early; config-dependent services are enabled after their config is deployed.
 - `config/` - Config files deployed to `~/.config/` or `/etc/`. KDE configs are copied (KConfig's atomic writes break symlinks). Non-KDE user configs are symlinked. System configs under `/etc/` are copied (require root ownership).
 - `install/` - archinstall config and installer script. `user_configuration.json` has system settings (disk, locale) and a minimal boot-only package set (just enough for KDE + network + terminal). All other packages live in `packages/official.txt` and are installed by `setup.sh`. `install.sh` is the entry point -- it prompts for passwords, hashes them, writes a temporary credentials file, and runs archinstall. The disk `device` field uses `/dev/disk/by-id/` (serial-based) instead of `/dev/nvmeXnY` because NVMe device numbering is not stable across reboots. No passwords or secrets are stored in the repo.
 
@@ -33,13 +33,13 @@ After reboot, log in via tuigreet — a konsole window opens automatically and r
 6. Custom forks (lite-xl-custom, foot-custom) built from GitHub via makepkg if missing
 7. Nix via Determinate Systems installer if missing
 8. Claude Code if missing
-9. Enable and start systemd services (including `pcscd` for YubiKey)
+9. Enable and start systemd services
 10. AMD GPU kernel params
 11. Font rendering (system-level fontconfig in `/etc/fonts/conf.d/`)
 12. KDE settings (lock screen, hot corners, dark theme)
 13. Mount points (data disk + NAS, explicit mount for mid-script access)
-14. SSH key restore from NAS (age-encrypted, YubiKey decryption — prompts for YubiKey)
-15. Git/GitHub config (interactive `gh auth login` with YubiKey passkey)
+14. SSH key restore from NAS (age-encrypted, passphrase decryption)
+15. Git/GitHub config (interactive `gh auth login`)
 16. SSH server config
 17. Deploy config files (copy KDE configs including monitor layout, symlink the rest)
 18. Bluetooth pairing (background scan with polling)
@@ -92,7 +92,7 @@ Single-user personal workstation on a home LAN (192.168.1.0/24). The router only
 
 - **Lateral movement from LAN**: A compromised device on the network could reach this machine. Mitigated by nftables (default-deny inbound, LAN-only rules for SSH/Cockpit), fail2ban, and key-only SSH.
 - **Supply chain (packages)**: AUR packages could contain malicious code. Mitigated by PKGBUILD auditing, pacman pre-transaction hooks, and archival of all PKGBUILDs for post-audit.
-- **Secret leakage**: Credentials could be committed to git. Mitigated by YubiKey-encrypted SSH keys, 1Password CLI runtime injection, trufflehog scanning, and git-filter-repo for history rewriting.
+- **Secret leakage**: Credentials could be committed to git. Mitigated by passphrase-encrypted SSH keys (age), 1Password CLI runtime injection, trufflehog scanning, and git-filter-repo for history rewriting.
 - **Config drift**: Deployed configs silently diverging from the repo could mask tampering. Mitigated by `tools/check-drift.sh` on all copied configs.
 
 ### Principles for Changes
@@ -100,7 +100,7 @@ Single-user personal workstation on a home LAN (192.168.1.0/24). The router only
 1. **Flag security side-effects proactively.** If a change opens a port, weakens auth, adds a privileged service, or touches secrets handling, say so before making it - even if the user didn't ask about security.
 2. **Least privilege by default.** New services should run unprivileged. New mounts should have restrictive flags. New firewall rules should be LAN-scoped unless there's a reason not to.
 3. **Verify before weakening.** Before removing or loosening a security control, check why it exists by reading the relevant config. It may be load-bearing for something non-obvious (e.g. Brave requires unprivileged user namespaces for sandboxing).
-4. **Secrets never in repo.** No API keys, passwords, tokens, or private keys. If a config needs a secret at runtime, use 1Password CLI (`op run`) or age-encrypted files with YubiKey.
+4. **Secrets never in repo.** No API keys, passwords, tokens, or private keys. If a config needs a secret at runtime, use 1Password CLI (`op run`) or age-encrypted files with passphrase.
 
 ## Maintenance
 
@@ -116,7 +116,7 @@ Detects when deployed config copies have diverged from the repo. Only **copied**
 - When adding a new `copy_config` deployment or `sudo cp` to setup.sh, add a matching `check` line to `tools/check-drift.sh`.
 - Do NOT add entries for `link_config` deployments (symlinks don't drift).
 - Do NOT add entries for configs that are routinely modified by their application at runtime (e.g. Lutris game configs, CurseForge). Drift checking those would just produce noise.
-- Configs that are only read from the repo at runtime (e.g. `config/age/yubikey-identity.txt`) or only used by the installer (e.g. `config/autostart/first-login.desktop`) are not deployed by setup.sh and do not need drift entries.
+- Configs that are only used by the installer (e.g. `config/autostart/first-login.desktop`) are not deployed by setup.sh and do not need drift entries.
 - Scripts that are executed by setup.sh rather than deployed (e.g. `config/kwin/setup-kwin-scripts.sh`) also do not need drift entries.
 
 ## Python Virtual Environment
