@@ -24,6 +24,18 @@ End Phase 1 with a one-line bottom-line verdict: low/medium/high risk, and wheth
 
 Keep the output concise. Do not list every package - group and summarize.
 
+## Phase 1.5: Arch Linux News
+
+Fetch `https://archlinux.org/news/` and check for any recent posts that require manual intervention before or during the upgrade. Look for posts from the last 30 days that mention:
+
+- Required manual steps before upgrading (keyring updates, package replacements, config migrations)
+- Known incompatibilities or breakage with packages in the current update list
+- Pacman or filesystem changes that need action
+
+If any relevant news posts are found, summarize them prominently before Phase 2 output and flag any required pre-upgrade steps. If nothing relevant, note "No manual interventions required per archlinux.org/news."
+
+Include any relevant findings in the Warnings section of the Phase 3 report under a "### Arch news - manual intervention" heading (only if applicable).
+
 ## Phase 2: Upstream Changelogs
 
 After Phase 1, fetch upstream changelogs for all important packages. Skip bulk rebuild noise (haskell, qemu, vlc pkgrel bumps, etc.) and routine Electron app updates (spotify, discord, slack). Focus on packages where the changelog content could reveal security fixes, breaking changes, or regressions.
