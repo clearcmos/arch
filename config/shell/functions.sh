@@ -209,7 +209,7 @@ if [[ -n "$ZSH_VERSION" ]]; then
         if [[ "$BUFFER" == g\ * ]]; then
             local query="${BUFFER#g }"
             local -a matches
-            matches=("${(@f)$(find ~/git -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | grep -i "$query" | sort)}")
+            matches=("${(@f)$(find -H ~/git -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | grep -i "$query" | sort)}")
             if (( ${#matches} == 1 )); then
                 BUFFER="g ${matches[1]}"
             elif (( ${#matches} > 1 )); then
@@ -230,7 +230,7 @@ if [[ -n "$ZSH_VERSION" ]]; then
 
     _g() {
         local -a dirs
-        dirs=("${(@f)$(find ~/git -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)}")
+        dirs=("${(@f)$(find -H ~/git -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)}")
         compadd -a dirs
     }
     compdef _g g
