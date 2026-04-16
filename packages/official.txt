@@ -11,6 +11,7 @@ bitwarden
 bitwarden-cli
 bluez
 bluez-utils
+cameractrls
 ccid
 cifs-utils
 clinfo

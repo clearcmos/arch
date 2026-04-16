@@ -7,6 +7,7 @@ alias c='claude'
 
 # Update checker
 alias check-updates='~/arch/tools/check-updates.sh'
+alias check-updates-quick='~/arch/tools/check-updates.sh --no-ai'
 
 # GitHub repo management
 alias gvis='ghrepo visibility'

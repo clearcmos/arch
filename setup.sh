@@ -783,9 +783,14 @@ else
 fi
 
 # Web apps (Brave PWAs)
-link_config "$SCRIPT_DIR/config/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop" "$HOME/.local/share/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop"
-link_config "$SCRIPT_DIR/config/applications/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.desktop" "$HOME/.local/share/applications/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.desktop"
-link_config "$SCRIPT_DIR/config/applications/brave-agimnkijcaahngcdmfeangaknmldooml-Default.desktop" "$HOME/.local/share/applications/brave-agimnkijcaahngcdmfeangaknmldooml-Default.desktop"
+link_config "$SCRIPT_DIR/config/applications/brave-agimnkijcaahngcdmfeangaknmldooml-Default.desktop" "$HOME/.local/share/applications/brave-agimnkijcaahngcdmfeangaknmldooml-Default.desktop" # YouTube
+link_config "$SCRIPT_DIR/config/applications/brave-cadlkienfkclaiaibeoongdcgmdikeeg-Default.desktop" "$HOME/.local/share/applications/brave-cadlkienfkclaiaibeoongdcgmdikeeg-Default.desktop" # ChatGPT
+link_config "$SCRIPT_DIR/config/applications/brave-comkdlimbkhemidbbpchhepidbmjpnhh-Default.desktop" "$HOME/.local/share/applications/brave-comkdlimbkhemidbbpchhepidbmjpnhh-Default.desktop" # Twitch
+link_config "$SCRIPT_DIR/config/applications/brave-eigpmdhekjlgjgcppnanaanbdmnlnagl-Default.desktop" "$HOME/.local/share/applications/brave-eigpmdhekjlgjgcppnanaanbdmnlnagl-Default.desktop" # Outlook
+link_config "$SCRIPT_DIR/config/applications/brave-fmpnliohjhemenmnlpbfagaolkdacoja-Default.desktop" "$HOME/.local/share/applications/brave-fmpnliohjhemenmnlpbfagaolkdacoja-Default.desktop" # Claude
+link_config "$SCRIPT_DIR/config/applications/brave-hnpfjngllnobngcgfapefoaidbinmjnm-Default.desktop" "$HOME/.local/share/applications/brave-hnpfjngllnobngcgfapefoaidbinmjnm-Default.desktop" # WhatsApp
+link_config "$SCRIPT_DIR/config/applications/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.desktop" "$HOME/.local/share/applications/brave-kippjfofjhjlffjecoapiogbkgbpmgej-Default.desktop" # Messenger
+link_config "$SCRIPT_DIR/config/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop" "$HOME/.local/share/applications/brave-okhfeehhillipaleckndoboggdkcebmo-Default.desktop" # Google Tasks
 
 # Encrypted archive (decrypt-extract double-click handler)
 link_config "$SCRIPT_DIR/config/applications/decrypt-extract.desktop" "$HOME/.local/share/applications/decrypt-extract.desktop"

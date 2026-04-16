@@ -5,12 +5,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 CACHE_DIR="$HOME/.cache/check-updates"
 AUTO_MODE=false
+NO_AI=false
 
 # --- Parse args ---
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --auto) AUTO_MODE=true; shift ;;
+        --no-ai) NO_AI=true; shift ;;
         *) shift ;;
     esac
 done
@@ -34,13 +36,15 @@ if ! command -v paru &>/dev/null; then
 fi
 
 HAVE_CLAUDE=0
-if command -v claude &>/dev/null && claude auth status &>/dev/null 2>&1; then
-    HAVE_CLAUDE=1
-else
-    if $AUTO_MODE; then
-        exit 0
+if ! $NO_AI; then
+    if command -v claude &>/dev/null && claude auth status &>/dev/null 2>&1; then
+        HAVE_CLAUDE=1
+    else
+        if $AUTO_MODE; then
+            exit 0
+        fi
+        warn "Claude CLI not available - will show raw updates only (no AUR audit)"
     fi
-    warn "Claude CLI not available - will show raw updates only (no AUR audit)"
 fi
 
 # --- Gather official repo updates ---
@@ -215,6 +219,10 @@ if ! $AUTO_MODE; then
     echo "Recent Arch Linux news:"
     echo "$ARCH_NEWS"
     echo ""
+fi
+
+if $NO_AI; then
+    exit 0
 fi
 
 # --- AUR audit (only if there are AUR changes) ---
