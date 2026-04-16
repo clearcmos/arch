@@ -148,6 +148,18 @@ else
     rm -rf "$_tmp"
 fi
 
+# --- archnav (file navigator) ---
+
+if pacman -Q archnav-git &>/dev/null; then
+    info "archnav-git already installed, skipping."
+else
+    info "Building archnav-git from source..."
+    _tmp=$(mktemp -d)
+    git clone https://github.com/clearcmos/archnav.git "$_tmp/archnav-git"
+    (cd "$_tmp/archnav-git" && makepkg -si --noconfirm)
+    rm -rf "$_tmp"
+fi
+
 # --- Nix (Determinate Systems installer) ---
 
 if [[ -f /nix/receipt.json ]]; then
