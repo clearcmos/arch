@@ -82,7 +82,19 @@ head -5 <file>.jsonl | grep -o '"cwd":"[^"]*"' | head -1
 
 ---
 
-## 6. Subagent file matches but parent session unclear
+## 6. Valid session falsely excluded as "current session"
+
+**Symptom:** A matching session from earlier today (or any previous session) is silently excluded from results.
+
+**Cause:** Using `grep -ql "find-conversation"` to identify the current session is too broad. Any previous session where the user also ran `/find-conversation` will contain that string and get excluded.
+
+**Recovery:**
+1. Identify the current session by file modification time (most recently modified JSONL in the project directory), not by content matching
+2. Exclude only that specific file path, not all files containing a particular string
+
+---
+
+## 7. Subagent file matches but parent session unclear
 
 **Symptom:** Keywords only appear in a subagent transcript (`subagents/agent-*.jsonl`).
 
