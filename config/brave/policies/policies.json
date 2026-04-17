@@ -7,7 +7,7 @@
   "DefaultBrowserSettingEnabled": true,
   "MetricsReportingEnabled": false,
   "SearchSuggestEnabled": false,
-  "SpellcheckEnabled": true,
+  "SpellcheckEnabled": false,
   "SpellcheckLanguage": ["en-US", "en-CA", "fr"],
   "RestoreOnStartup": 1,
 
