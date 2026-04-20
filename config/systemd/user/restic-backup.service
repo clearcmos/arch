@@ -1,0 +1,14 @@
+[Unit]
+Description=Restic backup to NAS
+After=network-online.target mnt-syno.mount
+Wants=network-online.target
+ConditionPathIsMountPoint=/mnt/syno
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/op/SVC_RESTIC_CMOS_ARCH.token
+Environment="RESTIC_REPOSITORY=/mnt/syno/backups/restic/cmos-arch"
+Environment="RESTIC_PASSWORD_COMMAND=op read op://backups/RESTIC_PW_CMOS_ARCH/password"
+ExecStart=/usr/bin/restic backup --files-from %h/arch/config/restic/includes.txt --exclude-file %h/arch/config/restic/excludes.txt --exclude-caches
+Nice=10
+IOSchedulingClass=idle

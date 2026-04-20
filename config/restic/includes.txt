@@ -5,12 +5,11 @@
 /home/nicholas/.config/gh
 /home/nicholas/.claude
 /home/nicholas/.config/1Password
-/home/nicholas/.config/Bitwarden
 /home/nicholas/.config/Nextcloud
 /home/nicholas/.local/share/kwalletd
-/home/nicholas/Documents
 /home/nicholas/.config/BraveSoftware
 /home/nicholas/.config/google-chrome
 /home/nicholas/.config/mozilla
 /home/nicholas/.local/share/lutris
 /home/nicholas/.config/CurseForge
+/mnt/data/nextcloud

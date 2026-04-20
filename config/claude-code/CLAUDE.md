@@ -46,4 +46,4 @@ The Agent SDK (`claude-agent-sdk` Python package) spawns the Claude Code CLI as 
 
 # API Documentation
 
-`~/git/api-docs` contains API documentation for various services. Reference this when working with APIs that may have docs there.
+`~/git/api-docs` contains API documentation for various services (vendor docs, third-party API references, SDK documentation). Reference this when working with APIs that may have docs there, or whenever the user says "check vendor docs", "check the vendor docs", "look up the API docs", or similar.

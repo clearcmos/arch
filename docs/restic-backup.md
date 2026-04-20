@@ -31,24 +31,24 @@ You'll be prompted for a password. Store it somewhere safe (1Password, etc).
 
 ### Environment variables
 
-To avoid typing the repo path and password every time:
+On this machine, `RESTIC_REPOSITORY` and `RESTIC_PASSWORD_COMMAND` are set declaratively via `config/environment.d/40-restic.conf`, deployed by `setup.sh` to `~/.config/environment.d/40-restic.conf`. systemd user sessions load these at login, so restic commands work with no manual exports.
+
+Password is pulled at runtime from 1Password: `op read op://backups/RESTIC_PW_CMOS_ARCH/password`. The item must exist in the `backups` vault before `setup.sh` can initialize the repo; setup.sh will skip the init step with a clear message otherwise.
+
+For other hosts or one-off use, export the vars manually:
 
 ```bash
-export RESTIC_REPOSITORY="/mnt/syno/backups/restic"
-export RESTIC_PASSWORD_COMMAND="op read 'op://Personal/restic/password'"
-```
-
-Or with a password file:
-
-```bash
-export RESTIC_PASSWORD_FILE="/path/to/password-file"
+export RESTIC_REPOSITORY=/path/to/repo
+export RESTIC_PASSWORD_COMMAND="op read op://<vault>/<item>/password"
+# or use a password file:
+export RESTIC_PASSWORD_FILE=/path/to/password-file
 ```
 
 ## Daily use
 
 ### Back up
 
-Using the config files in `config/restic/`:
+Using the config files in `config/restic/` (env vars come from `environment.d/40-restic.conf`):
 
 ```bash
 restic backup \
@@ -162,36 +162,79 @@ restic unlock
 
 ## Automation
 
-To run backups on a schedule, create a systemd timer. Example unit files:
+Daily backups run via a systemd user timer, deployed from `config/systemd/user/restic-backup.{service,timer}` by `setup.sh`.
 
-**restic-backup.service**:
+### Why a 1Password service account
 
-```ini
-[Unit]
-Description=Restic backup
+Interactive `op read` uses the desktop app integration, which prompts for biometrics/system auth. That is fine for shells but not for a timer that fires at 3 AM with no one logged in.
 
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/restic backup --files-from /home/nicholas/arch/config/restic/includes.txt --exclude-file /home/nicholas/arch/config/restic/excludes.txt
-Environment=RESTIC_REPOSITORY=/mnt/syno/backups/restic
-Environment=RESTIC_PASSWORD_COMMAND=op read 'op://Personal/restic/password'
+A 1Password Service Account is the unattended auth path. It is a JWT token (prefix `ops_`) with a scoped vault grant. Set `OP_SERVICE_ACCOUNT_TOKEN=ops_...` and `op` will authenticate against that token directly, no desktop app needed.
+
+### Token file naming
+
+One file per service account. `op` only reads a single env var (`OP_SERVICE_ACCOUNT_TOKEN`), so multiple SAs cannot share an env file. Each systemd unit points its `EnvironmentFile=` at a dedicated file:
+
+```
+~/.config/op/SVC_RESTIC_CMOS_ARCH.token       -> OP_SERVICE_ACCOUNT_TOKEN=ops_AAA...
+~/.config/op/<future-workload>.token      -> OP_SERVICE_ACCOUNT_TOKEN=ops_BBB...
 ```
 
-**restic-backup.timer**:
+Per-workload SAs give narrow vault scopes, surgical revocation, and clean attribution in the 1Password activity log.
 
-```ini
-[Unit]
-Description=Daily restic backup
+### Setup
 
-[Timer]
-OnCalendar=daily
-Persistent=true
+1. In the 1Password web UI, create a service account named `SVC_RESTIC_CMOS_ARCH` with read-only access to the `backups` vault only. Store the token itself as a password item in a vault named `op` so you have a recovery reference if the local token file is lost.
+2. Copy the token it shows you (only displayed once).
+3. Run `~/arch/setup.sh`. When it reaches the restic section and finds no token file, it prompts:
 
-[Install]
-WantedBy=timers.target
+   ```
+   Paste token (starts with 'ops_'), or press Enter to skip:
+   ```
+
+   Paste the `ops_...` token. Input is hidden. setup.sh validates the `ops_` prefix, writes `~/.config/op/SVC_RESTIC_CMOS_ARCH.token` with `chmod 600` under a `umask 077` subshell, then enables `restic-backup.timer`.
+
+   If the token file already exists, the prompt is skipped and setup.sh just verifies the timer is enabled - so re-runs are silent.
+
+Manual path (if you'd rather skip the prompt, e.g. restoring the file from backup):
+
+```bash
+mkdir -p ~/.config/op
+umask 077
+printf 'OP_SERVICE_ACCOUNT_TOKEN=%s\n' 'ops_...' > ~/.config/op/SVC_RESTIC_CMOS_ARCH.token
+chmod 600 ~/.config/op/SVC_RESTIC_CMOS_ARCH.token
 ```
 
-Enable with `systemctl --user enable --now restic-backup.timer`.
+Then re-run `setup.sh` to enable the timer.
+
+### Operational commands
+
+```bash
+# Timer status
+systemctl --user status restic-backup.timer
+systemctl --user list-timers restic-backup.timer
+
+# Trigger a backup now (out of schedule)
+systemctl --user start restic-backup.service
+
+# View last run's logs
+journalctl --user -u restic-backup.service -n 200 --no-pager
+
+# Disable automated backups temporarily
+systemctl --user disable --now restic-backup.timer
+```
+
+### Token rotation
+
+Rotate the service account token from the 1Password web UI, then either:
+
+- delete `~/.config/op/SVC_RESTIC_CMOS_ARCH.token` and re-run `setup.sh` to be prompted for the new value, or
+- overwrite the file in place using the manual recipe above.
+
+No restart needed; the next timer fire picks it up (systemd re-reads `EnvironmentFile=` per run for `Type=oneshot`).
+
+### Retention
+
+The timer only runs `restic backup`. It does not prune. Run `restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune` manually from a shell (which uses the desktop app integration) when you want to apply retention. You can add a second timer for this later if desired.
 
 ## Tips
 

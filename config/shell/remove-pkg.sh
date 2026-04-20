@@ -3,7 +3,7 @@
 # Lists all installed packages (official + AUR), lets you pick one, then removes it.
 set -euo pipefail
 
-PKG=$(pacman -Qq | sort | fzf --prompt="Remove package: " --preview="pacman -Qi {}" --preview-window=right:60%:wrap) || exit 0
+PKG=$(expac --timefmt='%s' '%l\t%n' | sort -rn | cut -f2 | fzf --no-sort --prompt="Remove package: " --preview="pacman -Qi {}" --preview-window=right:60%:wrap) || exit 0
 
 [[ -z "$PKG" ]] && exit 0
 

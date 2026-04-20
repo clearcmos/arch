@@ -8,3 +8,8 @@ blob_storage
 IndexedDB
 Local Storage
 Session Storage
+*.log
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db

@@ -3,20 +3,10 @@ set -euo pipefail
 
 # List all Cloudflare DNS records across zones
 # Credentials injected via 1Password (op run wrapper in functions.sh)
-# Use --bw to fetch the token from Bitwarden CLI instead
-
-if [[ "${1:-}" == "--bw" ]]; then
-    shift
-    CLOUDFLARE_DNS_API_TOKEN="$(bwfetch CLOUDFLARE_API_TOKEN credential 2>/dev/null)" || {
-        echo "Error: Failed to get token from Bitwarden"
-        exit 1
-    }
-    export CLOUDFLARE_DNS_API_TOKEN
-fi
 
 if [[ -z "${CLOUDFLARE_DNS_API_TOKEN:-}" ]]; then
     echo "Error: CLOUDFLARE_DNS_API_TOKEN not set"
-    echo "This script should be run via the cf-list wrapper (which uses op run) or with --bw"
+    echo "This script should be run via the cf-list wrapper (which uses op run)"
     exit 1
 fi
 

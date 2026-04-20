@@ -610,6 +610,35 @@ else
     fi
 fi
 
+# --- Restic backup repo ---
+
+info "Initializing restic backup repo..."
+RESTIC_REPO="/mnt/syno/backups/restic/cmos-arch"
+
+if ! command -v restic &>/dev/null; then
+    warn "  restic not installed, skipping."
+elif ! mountpoint -q /mnt/syno; then
+    warn "  /mnt/syno not mounted, skipping."
+elif ! command -v op &>/dev/null; then
+    warn "  op CLI not installed, skipping."
+elif ! op whoami &>/dev/null 2>&1; then
+    warn "  op CLI not signed in. Run 'eval \$(op signin)' and re-run setup.sh."
+elif ! op item get RESTIC_PW_CMOS_ARCH --vault backups &>/dev/null 2>&1; then
+    warn "  1Password item 'RESTIC_PW_CMOS_ARCH' not found in vault 'backups'. Create it with:"
+    warn "    op item create --category=password --vault=backups --title=RESTIC_PW_CMOS_ARCH password='<strong password>'"
+else
+    mkdir -p "$RESTIC_REPO"
+    export RESTIC_REPOSITORY="$RESTIC_REPO"
+    export RESTIC_PASSWORD_COMMAND="op read op://backups/RESTIC_PW_CMOS_ARCH/password"
+    if restic cat config &>/dev/null; then
+        info "  restic repo already initialized at $RESTIC_REPO."
+    else
+        restic init
+        info "  restic repo initialized at $RESTIC_REPO."
+    fi
+    unset RESTIC_REPOSITORY RESTIC_PASSWORD_COMMAND
+fi
+
 # --- Git & GitHub ---
 
 info "Configuring Git and GitHub..."
@@ -777,6 +806,7 @@ link_config "$SCRIPT_DIR/config/environment.d/10-amd-gpu.conf" "$HOME/.config/en
 link_config "$SCRIPT_DIR/config/environment.d/10-wayland.conf" "$HOME/.config/environment.d/10-wayland.conf"
 link_config "$SCRIPT_DIR/config/environment.d/20-gaming.conf" "$HOME/.config/environment.d/20-gaming.conf"
 link_config "$SCRIPT_DIR/config/environment.d/30-ai.conf" "$HOME/.config/environment.d/30-ai.conf"
+link_config "$SCRIPT_DIR/config/environment.d/40-restic.conf" "$HOME/.config/environment.d/40-restic.conf"
 
 # Foot terminal
 link_config "$SCRIPT_DIR/config/foot/foot.ini" "$HOME/.config/foot/foot.ini"
@@ -1240,20 +1270,43 @@ mkdir -p "$HOME/.config/systemd/user"
 cp "$SCRIPT_DIR/config/systemd/user/screen-off-toggle.service" "$HOME/.config/systemd/user/"
 cp "$SCRIPT_DIR/config/systemd/user/screen-off-watcher.service" "$HOME/.config/systemd/user/"
 cp "$SCRIPT_DIR/config/systemd/user/bt-toggle.service" "$HOME/.config/systemd/user/"
-cp "$SCRIPT_DIR/config/systemd/user/bw-serve.service" "$HOME/.config/systemd/user/"
+cp "$SCRIPT_DIR/config/systemd/user/restic-backup.service" "$HOME/.config/systemd/user/"
+cp "$SCRIPT_DIR/config/systemd/user/restic-backup.timer" "$HOME/.config/systemd/user/"
 systemctl --user daemon-reload
 info "  deployed user systemd services."
 
-# Enable Bitwarden CLI REST API (requires master password in ~/.local/share/bw/master-password)
-if [ -f "${XDG_DATA_HOME:-$HOME/.local/share}/bw/master-password" ]; then
-    if ! systemctl --user is-enabled bw-serve.service &>/dev/null; then
-        systemctl --user enable --now bw-serve.service
-        info "  enabled bw-serve."
+# Enable restic backup timer (requires 1Password service account token)
+SA_TOKEN_FILE="$HOME/.config/op/SVC_RESTIC_CMOS_ARCH.token"
+if [ ! -f "$SA_TOKEN_FILE" ]; then
+    echo ""
+    info "restic-backup.timer needs a 1Password service account token (SVC_RESTIC_CMOS_ARCH)."
+    info "  SA must exist in the 1Password web UI with read access to the 'backups' vault."
+    while true; do
+        read -r -s -p "  Paste token (starts with 'ops_'), or press Enter to skip: " sa_token
+        echo ""
+        if [ -z "$sa_token" ]; then
+            break
+        fi
+        if [[ "$sa_token" == ops_* ]]; then
+            mkdir -p "$HOME/.config/op"
+            (umask 077 && printf 'OP_SERVICE_ACCOUNT_TOKEN=%s\n' "$sa_token" > "$SA_TOKEN_FILE")
+            chmod 600 "$SA_TOKEN_FILE"
+            info "  wrote $SA_TOKEN_FILE (0600)."
+            break
+        fi
+        warn "  token must start with 'ops_'. Try again or press Enter to skip."
+    done
+fi
+
+if [ -f "$SA_TOKEN_FILE" ]; then
+    if ! systemctl --user is-enabled restic-backup.timer &>/dev/null; then
+        systemctl --user enable --now restic-backup.timer
+        info "  enabled restic-backup.timer (daily)."
     else
-        info "  bw-serve already enabled."
+        info "  restic-backup.timer already enabled."
     fi
 else
-    info "  skipping bw-serve (no master password file)."
+    warn "  skipping restic-backup.timer (no token at $SA_TOKEN_FILE)."
 fi
 
 # Deploy KWin scripts

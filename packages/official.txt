@@ -7,8 +7,6 @@ ark
 base-devel
 bat
 bind
-bitwarden
-bitwarden-cli
 bluez
 bluez-utils
 cameractrls
@@ -27,6 +25,7 @@ docker-buildx
 docker-compose
 dolphin
 dos2unix
+expac
 fail2ban
 fd
 ffmpeg

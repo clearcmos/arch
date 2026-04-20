@@ -103,7 +103,7 @@ Build the "declared services" set from setup.sh:
 
 - Config-free services in the `for svc in ...` loop
 - Services enabled inline in their config sections (nftables, fail2ban, sshd, bluetooth, cups, docker, libvirtd, cockpit, ollama, xremap, ydotool)
-- User services (xremap, ydotool, bw-serve, kde-timer-notifications, etc.)
+- User services (xremap, ydotool, kde-timer-notifications, etc.)
 
 Compare against `systemctl list-unit-files --state=enabled`. Categorize:
 - **Declared but disabled** - setup.sh enables it but it's off (bug or manual override?)

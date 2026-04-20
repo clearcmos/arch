@@ -27,8 +27,5 @@ alias r='sudo -i'
 alias cpath='pwd | tr -d '\''\n'\'' | wl-copy && echo "Copied: $(pwd)"'
 alias addons='cd "/mnt/data/games/World of Warcraft/_anniversary_/Interface/AddOns"'
 
-# Bitwarden
-alias bwfetch='~/arch/bin/bwfetch'
-
 # Google Tasks CLI
 alias task='uv run ~/git/tasks/task.py'
