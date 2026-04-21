@@ -8,5 +8,9 @@ Host github-work
     IdentityFile ~/.ssh/id_ed25519_work
     IdentitiesOnly yes
 
+Host 100.102.130.40
+    IdentityFile ~/.ssh/id_ed25519_work
+    IdentitiesOnly yes
+
 Host *
     IdentitiesOnly yes

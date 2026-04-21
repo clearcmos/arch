@@ -40,8 +40,9 @@ link() {
     info "linked $dest"
 }
 
-# Claude Code global config
-link "$SCRIPT_DIR/../config/claude-code/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+# Claude Code global config (work-specific, separate from personal)
+link "$SCRIPT_DIR/config/claude-code/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+link "$SCRIPT_DIR/config/claude-code/skills" "$HOME/.claude/skills"
 
 # KDE Wallet config (shared with primary user)
 deploy "$SCRIPT_DIR/../config/kde/kwalletrc" "$HOME/.config/kwalletrc"
