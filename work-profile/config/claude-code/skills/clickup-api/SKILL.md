@@ -1,6 +1,6 @@
 ---
 name: clickup-api
-description: Call any ClickUp REST API endpoint (v2 or v3) using a personal API token. Use when the user says "create clickup task", "open a clickup ticket", "post clickup comment", "comment on CU-<id>", "update clickup task", "add clickup tag", "start clickup time tracking", "find clickup list/folder/space", "upload attachment to clickup", "search clickup tasks", "add custom field value on clickup", or otherwise asks to read, create, update, or delete anything in ClickUp. Reads the token from ~/.config/clickup-api/config.yaml. For task bodies use `markdown_content` (not plain-text `description`); for comments use the rich `comment` array (Quill Delta) not `comment_text`. Full endpoint reference lives at ~/git/vendor-api-docs/clickup/.
+description: Call any ClickUp REST API endpoint (v2 or v3) using a personal API token. Use when the user says "create clickup task", "open a clickup ticket", "post clickup comment", "comment on CU-<id>", "update clickup task", "add clickup tag", "start clickup time tracking", "find clickup list/folder/space", "upload attachment to clickup", "search clickup tasks", "add custom field value on clickup", or otherwise asks to read, create, update, or delete anything in ClickUp. Reads the token from ~/.config/api-skills/clickup.yaml. For task bodies use `markdown_content` (not plain-text `description`); for comments use the rich `comment` array (Quill Delta) not `comment_text`. Full endpoint reference lives at ~/git/vendor-api-docs/clickup/.
 ---
 
 # ClickUp API
@@ -18,7 +18,7 @@ Call the ClickUp v2 or v3 REST API with a personal API token. Supersedes the old
 
 ## Step 1: Load config and token
 
-Read `~/.config/clickup-api/config.yaml`. Expected shape:
+Read `~/.config/api-skills/clickup.yaml`. Expected shape:
 
 ```yaml
 token_file: /absolute/path/to/clickup-token
@@ -38,7 +38,7 @@ Base URL: `https://api.clickup.com` - v2 paths are `/api/v2/...`, v3 paths are `
 
 ### First-time setup (new machine, new teammate)
 
-If `~/.config/clickup-api/config.yaml` doesn't exist, stop and walk the user through this setup. Run the commands verbatim - they are chosen so the token file is never group/world-readable regardless of the user's `umask`. Works on Linux and macOS.
+If `~/.config/api-skills/clickup.yaml` doesn't exist, stop and walk the user through this setup. Run the commands verbatim - they are chosen so the token file is never group/world-readable regardless of the user's `umask`. Works on Linux and macOS.
 
 1. **Generate a personal API token.** In ClickUp: avatar -> Settings -> Apps -> API Token -> Generate (or go to https://app.clickup.com/settings/apps). Copy the `pk_...` string. Tokens never expire; treat them like a password.
 
@@ -61,10 +61,10 @@ If `~/.config/clickup-api/config.yaml` doesn't exist, stop and walk the user thr
 3. **Create the skill config, also locked down.**
 
    ```bash
-   mkdir -p ~/.config/clickup-api
-   chmod 700 ~/.config/clickup-api
-   install -m 600 /dev/null ~/.config/clickup-api/config.yaml
-   $EDITOR ~/.config/clickup-api/config.yaml
+   mkdir -p ~/.config/api-skills
+   chmod 700 ~/.config/api-skills
+   install -m 600 /dev/null ~/.config/api-skills/clickup.yaml
+   $EDITOR ~/.config/api-skills/clickup.yaml
    ```
 
    Put this inside (replace the workspace/list IDs with the user's own if they want defaults; both are optional):
@@ -78,7 +78,7 @@ If `~/.config/clickup-api/config.yaml` doesn't exist, stop and walk the user thr
 4. **Verify permissions.** Expected: directories `700`, files `600`, all owned by the user.
 
    ```bash
-   stat -c '%a %U:%G %n' ~/.secrets ~/.secrets/clickup-token ~/.config/clickup-api ~/.config/clickup-api/config.yaml
+   stat -c '%a %U:%G %n' ~/.secrets ~/.secrets/clickup-token ~/.config/api-skills ~/.config/api-skills/clickup.yaml
    # macOS: stat -f '%Lp %Su:%Sg %N' <paths>
    ```
 
