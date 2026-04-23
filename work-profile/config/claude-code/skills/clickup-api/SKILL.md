@@ -250,13 +250,51 @@ Modern endpoints (`docs/api-v2/time-tracking/`):
 ### Webhooks
 Create: `POST /v2/team/{team_id}/webhook`. Events listed in `docs/guides/webhooks/`. Signature verification uses the webhook `secret` + HMAC-SHA256 of the raw body - see the guide before trusting payloads.
 
+### Docs (create/update a page)
+Doc URLs are `https://app.clickup.com/{workspace_id}/docs/{doc_id}` or, for a specific page, `.../docs/{doc_id}/{page_id}`. Both IDs are opaque strings (e.g. `a17zz-52437`), NOT numeric. Extract from the URL; don't try to resolve by name.
+
+Prefer editing an existing page over creating a new one. A freshly-created ClickUp Doc usually auto-creates an empty page named "Overview" (or similar). Before POSTing a new page, list what's there and decide:
+```bash
+# Lightweight directory: just id + name per page, no content
+GET /api/v3/workspaces/{workspace_id}/docs/{doc_id}/page_listing
+# Heavyweight: full content for each page
+GET /api/v3/workspaces/{workspace_id}/docs/{doc_id}/pages
+```
+
+**Always pass `?content_format=text/md` on single-page GETs.** Without it, `content` is returned as ClickUp's internal Lexical JSON tree (a rich-text node graph) - not markdown. Useless for prompting back to a model or diffing against a source file.
+```bash
+GET /api/v3/workspaces/{workspace_id}/docs/{doc_id}/pages/{page_id}?content_format=text/md
+```
+
+For PUTs, include `content_format: "text/md"` and `content_edit_mode`:
+- `replace` - overwrite the page body (typical for "publish the latest version of this doc")
+- `append` - add to the end (good for status-update logs on long-lived docs)
+- `prepend` - add to the top
+```json
+{
+  "name": "Overview",
+  "content_format": "text/md",
+  "content_edit_mode": "replace",
+  "content": "# Title\n\nBody..."
+}
+```
+
+Create a new page with `POST /api/v3/workspaces/{workspace_id}/docs/{doc_id}/pages`, same body shape (no `content_edit_mode`). Use `parent_page_id` to nest.
+
 ## Troubleshooting
 
 ### 401 Unauthorized (OAUTH_019 / OAUTH_025)
 Wrong `token_file` path, empty token, revoked token, or accidental `Bearer ` prefix. Verify the path in the config, check the file has a valid `pk_...` token with no stray leading whitespace (the skill strips trailing only). Regenerate at https://app.clickup.com/settings/apps if in doubt.
 
-### 404 or "not found" on list/task/folder
-Personal tokens only see workspaces the user has access to. Open the resource in the browser under the same account. The task ID is the segment after `/t/`; the list ID is the numeric segment after `/li/` or `/l/`. For custom task IDs (e.g. `CU-abc123`), add `?custom_task_ids=true&team_id=<workspace_id>` to the request.
+### 404 or "not found" on list/task/folder/doc
+Personal tokens only see workspaces the user has access to. Open the resource in the browser under the same account. URL → ID cheatsheet:
+- Task: segment after `/t/`
+- List: numeric segment after `/li/` or `/l/`
+- Doc: segment after `/docs/` (opaque string like `a17zz-52437`, not numeric)
+- Doc page: the second opaque segment in `.../docs/{doc_id}/{page_id}`
+- Space/folder: numeric, rarely in URLs; resolve via workspace hierarchy
+
+For custom task IDs (e.g. `CU-abc123`), add `?custom_task_ids=true&team_id=<workspace_id>` to the request.
 
 ### Task markdown renders literally
 Used `description` instead of `markdown_content`. Fix by `PUT /v2/task/{task_id}` with `{"markdown_content": "...", "description": ""}`.
